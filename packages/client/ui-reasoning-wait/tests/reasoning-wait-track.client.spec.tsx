@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import type { ConversationSnapshot, PartialAssistant } from '@deepseek-ai/dsh-client-runtime/client'
 import { ReasoningWaitTrack, type ReasoningWaitTrackProps } from '../src/client/ReasoningWaitTrack.tsx'
-import { ringStrokeDasharray } from '../src/client/ring-geometry.ts'
+import { reasoningWaitAppearance } from '../src/client/thermometer.ts'
+import { RING_FILL_TRANSFORM, ringStrokeDasharray } from '../src/client/ring-geometry.ts'
 
 afterEach(() => {
   cleanup()
@@ -33,6 +34,17 @@ function fillOf(container: HTMLElement): SVGCircleElement | null {
   return container.querySelector('[data-reasoning-wait-fill]')
 }
 
+function fillDashAt(origin: number, now: number): string {
+  const snap = reasoningWaitAppearance({
+    turn: 1,
+    step: 1,
+    blocks: [{ kind: 'reasoning', text: 'plan' }],
+    waitOrigin: origin,
+  }, now)
+  if (snap.phase !== 'thermometer') throw new Error('expected thermometer')
+  return ringStrokeDasharray(snap.height)
+}
+
 describe('ReasoningWaitTrack', () => {
   it('renders an idle ring hidden from the accessibility tree, with no fill arc', () => {
     const { container } = render(<ReasoningWaitTrack {...meterProps()} />)
@@ -49,7 +61,7 @@ describe('ReasoningWaitTrack', () => {
     expect(fillOf(container)).toBeNull()
   })
 
-  it('fills clockwise at minimum arc and cool metal when wait starts', () => {
+  it('fills counterclockwise from the bottom at minimum arc and cool metal when wait starts', () => {
     const origin = 5_000
     vi.spyOn(Date, 'now').mockReturnValue(origin)
     const { container } = render(<ReasoningWaitTrack {...meterProps({
@@ -62,7 +74,9 @@ describe('ReasoningWaitTrack', () => {
     expect(container.querySelector('[data-reasoning-wait="thermometer"]')).not.toBeNull()
     expect(fill).not.toBeNull()
     expect(fill?.getAttribute('stroke')).toBe('#4a4d52')
+    expect(fill?.getAttribute('transform')).toBe(RING_FILL_TRANSFORM)
     expect(fill?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
+    expect(fill?.getAttribute('stroke-dasharray')?.startsWith('-')).toBe(true)
   })
 
   it('drains arc with frozen color when reasoning leaves the tail, then idles', () => {
@@ -130,7 +144,7 @@ describe('ReasoningWaitTrack', () => {
     act(() => {
       frames[0]?.(0)
     })
-    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 10_000))
   })
 
   it('idles when switching to a session that is not waiting, then resumes from wait origin', () => {
@@ -143,14 +157,14 @@ describe('ReasoningWaitTrack', () => {
       waitOrigin: origin,
     }
     const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
-    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 10_000))
 
     rerender(<ReasoningWaitTrack {...meterProps(null, 's2')} />)
     expect(container.querySelector('[data-reasoning-wait="idle"]')).not.toBeNull()
     expect(fillOf(container)).toBeNull()
 
     rerender(<ReasoningWaitTrack {...meterProps(waiting)} />)
-    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 10_000))
     expect(fillOf(container)?.getAttribute('stroke')).not.toBe('#4a4d52')
   })
 
@@ -195,7 +209,7 @@ describe('ReasoningWaitTrack', () => {
       waitOrigin: origin,
     }
     const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
-    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 10_000))
     rerender(<ReasoningWaitTrack {...meterProps({
       ...waiting,
       blocks: [...waiting.blocks, { kind: 'text', text: 'done' }],

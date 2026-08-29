@@ -2,7 +2,7 @@
 
 - phase: thermometer
 - fill present: true
-- fill arc positive: true
+- fill arc nonzero: true
 - fill uses cool-metal start (#4a4d52): true
 - shell size: 28×28
 - pointer-events: none

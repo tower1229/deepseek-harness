@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-29-reasoning-wait-thermometer.md
-2026-08-29-reasoning-wait-thermometer.md: d9725e38e0980a07af3b8670472d0c08c2728cf5
-2026-08-29-reasoning-wait-thermometer.zh.md: aeed8abfc81fa2d1e112c66dc836c163ef366ebd
+2026-08-29-reasoning-wait-thermometer.md: 07504f969e88daa4c508237c43798bbacdcf4faf
+2026-08-29-reasoning-wait-thermometer.zh.md: 753b8471536b4e436c4a8c010819a1938798fb41

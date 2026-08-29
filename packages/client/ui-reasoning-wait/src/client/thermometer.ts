@@ -73,7 +73,7 @@ export function isReasoningWait(
  * Map the current session's in-flight partial and a clock onto HUD appearance.
  * @param partial - visible session's open assistant partial, or none.
  * @param now - clock milliseconds comparable to session-log `waitOrigin`.
- * @returns idle, or thermometer height/color at clamped t.
+ * @returns idle, or thermometer height (ease-out on elapsed t) and color (linear t).
  */
 export function reasoningWaitAppearance(
   partial: PartialAssistant | null | undefined,
@@ -81,12 +81,41 @@ export function reasoningWaitAppearance(
 ): ReasoningWaitAppearance {
   if (!isReasoningWait(partial)) return { phase: 'idle' }
   const t = Math.min(1, Math.max(0, (now - partial.waitOrigin) / FULL_SCALE_MS))
+  const fillT = easeOutFill(t)
   return {
     phase: 'thermometer',
     t,
-    height: MIN_FILL + (1 - MIN_FILL) * t,
+    height: MIN_FILL + (1 - MIN_FILL) * fillT,
     color: ironScale(t),
   }
+}
+
+/**
+ * CSS ease-out cubic-bezier(0, 0, 0.58, 1): fast initial rise, decelerating
+ * toward full scale — speedometer needle curve.
+ * @param linearT - elapsed fraction in [0, 1].
+ * @returns eased fill fraction in [0, 1].
+ */
+function easeOutFill(linearT: number): number {
+  if (linearT <= 0) return 0
+  if (linearT >= 1) return 1
+  const cx = 0.58
+  const xAt = (u: number): number => {
+    const omt = 1 - u
+    return 3 * omt * u * u * cx + u ** 3
+  }
+  const yAt = (u: number): number => {
+    const omt = 1 - u
+    return 3 * omt * u * u + u ** 3
+  }
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2
+    if (xAt(mid) < linearT) lo = mid
+    else hi = mid
+  }
+  return yAt((lo + hi) / 2)
 }
 
 /**

@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ISession, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyConversation, inject as conversationInject } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -64,7 +64,7 @@ describe('assembled reasoning-wait meter ring', () => {
       snapshot: { nodes: [] },
       session: {
         loadOlder: vi.fn(),
-        prompt: vi.fn(async () => ({ ok: true, value: { accepted: true } })),
+        prompt: vi.fn<ISession['prompt']>(async () => ({ ok: true, value: { accepted: true } })),
       },
     })
     await runtime.root.declare(LAYOUT_CHILDREN, TwoColumnRoot)

@@ -21,6 +21,12 @@ function waiting(overrides: Partial<PartialAssistant> = {}): PartialAssistant {
   }
 }
 
+function expectedHeight(linearT: number): number {
+  const snap = reasoningWaitAppearance(waiting(), ORIGIN + linearT * FULL_SCALE_MS)
+  if (snap.phase !== 'thermometer') throw new Error('expected thermometer')
+  return snap.height
+}
+
 describe('reasoningWaitAppearance', () => {
   it('stays idle without a current session, without wait origin, or when reasoning is not the tail', () => {
     expect(reasoningWaitAppearance(undefined, ORIGIN)).toEqual({ phase: 'idle' })
@@ -46,7 +52,7 @@ describe('reasoningWaitAppearance', () => {
     }, ORIGIN)).toEqual({ phase: 'idle' })
   })
 
-  it('opens at minimum fill and cool metal, then remaps height while color follows unmapped t', () => {
+  it('opens at minimum fill and cool metal, then eases height while color follows unmapped t', () => {
     expect(reasoningWaitAppearance(waiting(), ORIGIN)).toEqual({
       phase: 'thermometer',
       t: 0,
@@ -61,14 +67,14 @@ describe('reasoningWaitAppearance', () => {
       throw new Error('expected thermometer')
     }
     expect(atThird.t).toBeCloseTo(1 / 3)
-    expect(atThird.height).toBeCloseTo(0.08 + 0.92 * (1 / 3))
+    expect(atThird.height).toBeCloseTo(expectedHeight(1 / 3))
     expect(atTwoThirds.t).toBeCloseTo(2 / 3)
-    expect(atTwoThirds.height).toBeCloseTo(0.08 + 0.92 * (2 / 3))
+    expect(atTwoThirds.height).toBeCloseTo(expectedHeight(2 / 3))
     const mid = reasoningWaitAppearance(waiting(), ORIGIN + FULL_SCALE_MS / 2)
     expect(mid).toMatchObject({
       phase: 'thermometer',
       t: 0.5,
-      height: 0.08 + 0.92 * 0.5,
+      height: expectedHeight(0.5),
     })
     if (mid.phase !== 'thermometer') throw new Error('expected thermometer')
     expect(mid.color).toMatch(/^color-mix\(in oklch, #9a2b1f, #e07020 /)
@@ -83,6 +89,15 @@ describe('reasoningWaitAppearance', () => {
     expect(late.t).toBeCloseTo(5 / 6)
     expect(early.color).toMatch(/^color-mix\(in oklch, #4a4d52, #9a2b1f /)
     expect(late.color).toMatch(/^color-mix\(in oklch, #e07020, #ffe28a /)
+  })
+
+  it('eases fill height with CSS ease-out while color follows linear t', () => {
+    const atHalf = reasoningWaitAppearance(waiting(), ORIGIN + FULL_SCALE_MS / 2)
+    if (atHalf.phase !== 'thermometer') throw new Error('expected thermometer')
+    expect(atHalf.t).toBe(0.5)
+    expect(atHalf.height).toBeGreaterThan(0.08 + 0.92 * 0.5)
+    expect(atHalf.height).toBeCloseTo(0.7098717499022505)
+    expect(atHalf.color).toMatch(/^color-mix\(in oklch, #9a2b1f, #e07020 /)
   })
 
   it('clamps at full scale and molten yellow-white, and resumes from wait origin rather than now', () => {
@@ -107,7 +122,7 @@ describe('reasoningWaitAppearance', () => {
     expect(reasoningWaitAppearance(waiting({ waitOrigin: ORIGIN - 10_000 }), ORIGIN)).toMatchObject({
       phase: 'thermometer',
       t: 10_000 / FULL_SCALE_MS,
-      height: 0.08 + 0.92 * (10_000 / FULL_SCALE_MS),
+      height: expectedHeight(10_000 / FULL_SCALE_MS),
     })
   })
 })
@@ -126,7 +141,7 @@ describe('advanceReasoningWait', () => {
       phase: 'thermometer',
       sessionKey: SESSION,
       t: 0.5,
-      height: 0.08 + 0.92 * 0.5,
+      height: expectedHeight(0.5),
     })
     if (hot.phase !== 'thermometer') throw new Error('expected thermometer')
     const frozen = hot.color

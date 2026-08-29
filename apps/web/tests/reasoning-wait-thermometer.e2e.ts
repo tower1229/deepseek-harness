@@ -32,7 +32,7 @@ const REASONING_HANG: StreamChunk[] = [
 interface RingFacts {
   phase: string
   fillPresent: boolean
-  fillArcPositive: boolean
+  fillArcNonZero: boolean
   fillUsesCoolMetalStart: boolean
   shellWidth: number
   shellHeight: number
@@ -103,7 +103,7 @@ async function measureRing(page: Page): Promise<RingFacts> {
     return {
       phase: ring.getAttribute('data-reasoning-wait') ?? '',
       fillPresent: true,
-      fillArcPositive: arc > 0,
+      fillArcNonZero: arc !== 0,
       fillUsesCoolMetalStart,
       shellWidth: Math.round(shellBox.width),
       shellHeight: Math.round(shellBox.height),
@@ -131,7 +131,7 @@ function renderGeometry(facts: RingFacts): string {
     '',
     `- phase: ${facts.phase}`,
     `- fill present: ${String(facts.fillPresent)}`,
-    `- fill arc positive: ${String(facts.fillArcPositive)}`,
+    `- fill arc nonzero: ${String(facts.fillArcNonZero)}`,
     `- fill uses cool-metal start (#4a4d52): ${String(facts.fillUsesCoolMetalStart)}`,
     `- shell size: ${String(facts.shellWidth)}×${String(facts.shellHeight)}`,
     `- pointer-events: ${facts.pointerEvents}`,
@@ -224,7 +224,7 @@ describe('web e2e: reasoning-wait thermometer ring beside the context meter', ()
     expect(facts).toEqual({
       phase: 'thermometer',
       fillPresent: true,
-      fillArcPositive: true,
+      fillArcNonZero: true,
       fillUsesCoolMetalStart: true,
       shellWidth: 28,
       shellHeight: 28,

@@ -6,15 +6,16 @@ import {
   isReasoningWait,
   type ReasoningWaitState,
 } from './thermometer.ts'
-import { RING_RADIUS, ringStrokeDasharray } from './ring-geometry.ts'
+import { RING_FILL_TRANSFORM, RING_RADIUS, ringStrokeDasharray } from './ring-geometry.ts'
 import css from './ReasoningWaitTrack.module.css'
 
 /** Full props for the composer reasoning-wait ring. */
 export type ReasoningWaitTrackProps = PropsRuntime<'conversation.input.meter'>
 
 /**
- * Composer trailing reasoning-wait ring. Idle track, clockwise iron-scale fill
- * while the current session's open partial has reasoning as its streaming tail,
+ * Composer trailing reasoning-wait ring. Idle track, counterclockwise iron-scale
+ * fill from the bottom while the current session's open partial has reasoning as
+ * its streaming tail,
  * or a 240ms arc drain with frozen color when that wait ends. A new wait
  * preempts drain. Reduced motion snaps wait end to idle. Decorative: hidden
  * from the accessibility tree and transparent to pointer events.
@@ -49,7 +50,7 @@ export function ReasoningWaitTrack({ session }: ReasoningWaitTrackProps) {
               r={RING_RADIUS}
               stroke={view.color}
               strokeDasharray={ringStrokeDasharray(view.height)}
-              transform="rotate(-90 7 7)"
+              transform={RING_FILL_TRANSFORM}
             />
           )}
         </svg>

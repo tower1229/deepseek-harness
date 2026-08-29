@@ -1222,4 +1222,55 @@ describe('assistant-step wait origin', () => {
     ])
     expect(snapshot(retried).legacy.partial).toBeNull()
   })
+
+  it('drops waitOrigin when the step closes without a message after empty reasoning', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+    ])
+    expect(snapshot(value).legacy.partial?.waitOrigin).toBe(1_700_000_000_003)
+
+    value.append(at(4, 'step/end', { turn: 1, step: 1 }))
+    value.flush()
+    const closed = snapshot(value)
+    expect(closed.legacy.partial).toBeNull()
+    expect((node(closed, 'assistant-step')?.data as AssistantChatData | undefined)?.waitOrigin).toBeUndefined()
+
+    const replayed = assembler([
+      at(1, 'turn/start', { turn: 7 }),
+      at(2, 'step/start', { turn: 7, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 7,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+      at(4, 'step/end', { turn: 7, step: 1 }),
+    ], true)
+    expect(snapshot(replayed).legacy.partial).toBeNull()
+  })
+
+  it('clears waitOrigin when interrupt evidence closes the step without assistant/message', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+      at(4, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'reasoning-delta', index: 0, text: 'plan' },
+      }),
+      at(5, 'step/end', { turn: 1, step: 1 }),
+    ])
+    expect(snapshot(value).legacy.partial).toBeNull()
+    expect((node(snapshot(value), 'assistant-step')?.data as AssistantChatData).waitOrigin).toBeUndefined()
+  })
 })

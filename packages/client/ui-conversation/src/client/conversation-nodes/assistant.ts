@@ -152,6 +152,17 @@ function closedBoundary(location: ConversationLocation): { seq: number; time: nu
   return undefined
 }
 
+function matchLocation(
+  context: ConversationNodeContext<AssistantState>,
+): ConversationLocation | undefined {
+  return context.start?.location ?? context.matches.at(-1)?.location
+}
+
+function streamClosed(context: ConversationNodeContext<AssistantState>): boolean {
+  const location = matchLocation(context)
+  return location !== undefined && closedBoundary(location) !== undefined
+}
+
 function finalNode(
   state: AssistantState,
   context: ConversationNodeContext<AssistantState>,
@@ -176,7 +187,7 @@ function finalNode(
       ...event.data.interrupted === true ? { interrupted: true } : {},
     }
   }
-  const location = context.start?.location ?? context.matches.at(-1)?.location
+  const location = matchLocation(context)
   const boundary = location === undefined ? undefined : closedBoundary(location)
   const blocks = compactBlocks(state.blocks)
   if (boundary === undefined || !hasInterruptionEvidence(blocks)) return undefined
@@ -247,7 +258,7 @@ function projectAssistant(context: ConversationNodeContext<AssistantState>): Ass
       time,
       ...state.usage === undefined ? {} : { usage: state.usage },
       ...settled === undefined ? {} : { finalNode: settled },
-      ...settled === undefined && state.waitOrigin !== undefined
+      ...settled === undefined && !streamClosed(context) && state.waitOrigin !== undefined
         ? { waitOrigin: state.waitOrigin }
         : {},
     },
@@ -311,10 +322,9 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
     const projected = projectAssistant(context)
     if (projected === undefined) return null
     if (projected.settled === undefined && !projected.visible && projected.data.waitOrigin === undefined) {
-      const state = context.state ?? fallbackState(context)
-      if (state === undefined) return null
       const current = context.current.get('chat')
-      if (!state.hidden || current === undefined || current === null) return null
+      // Assembler forbids withdrawing a materialized Chat node; keep it hidden.
+      if (current === undefined || current === null) return null
     }
     return chatNode(context, 'assistant-step', projected.anchorSeq, projected.data, {
       visibility: projected.settled?.interrupted === true || projected.visible ? 'visible' : 'hidden',

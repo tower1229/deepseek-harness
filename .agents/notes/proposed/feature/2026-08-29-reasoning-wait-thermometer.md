@@ -40,7 +40,7 @@ Glossary: [CONTEXT.md](../../../../CONTEXT.md). Fill color exception: [ADR 0001]
 - The track stays on the conversation column when details is open, sits in the column corner on hero and above the docked composer via `--dsh-composer-height` when active, and does not scroll with the transcript.
 - The trough does not intercept clicks and is omitted from the accessibility tree; trough and edge use theme chrome, not warning/danger.
 - Headless, ACP, and CLI compositions do not load this plugin; a profile patch can unload it from web.
-- Fill starts at first reasoning evidence with height `8% + 92% × t` and iron-scale color on unmapped t; wait origin survives session switch, reload, and reconnect; wait end snaps to idle until drain ships.
+- Fill starts at first reasoning evidence with height `8% + 92% × t` and iron-scale color on unmapped t; wait origin survives session switch, reload, and reconnect; wait end snaps to idle until drain ships, including abort that finalizes no `assistant/message`.
 - The assembled web snapshot covers the idle trough. Later slices: drain 240ms with frozen color; new wait preempts drain; reduced motion snaps to idle; snapshot of in-flight reasoning wait.
 
 ## Risks

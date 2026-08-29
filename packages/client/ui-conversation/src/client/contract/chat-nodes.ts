@@ -28,7 +28,9 @@ export interface AssistantChatData {
   readonly finalNode?: AssistantMessageNode
   /**
    * Session-log time of the first reasoning evidence on this running partial.
-   * Present only while `status` is `running` and that evidence has arrived.
+   * Present only while `status` is `running`, that evidence has arrived, and
+   * the step is still open. Omitted after settle, interrupt, or a closed step
+   * that finalized no message.
    */
   readonly waitOrigin?: number
 }

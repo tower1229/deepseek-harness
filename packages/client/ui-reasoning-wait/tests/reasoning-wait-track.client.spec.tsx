@@ -104,4 +104,25 @@ describe('ReasoningWaitTrack', () => {
     })
     expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('54%')
   })
+
+  it('idles when switching to a session that is not waiting, then resumes from wait origin', () => {
+    const origin = 10_000
+    vi.spyOn(Date, 'now').mockReturnValue(origin + 18_500)
+    const waiting: PartialAssistant = {
+      turn: 1,
+      step: 1,
+      blocks: [{ kind: 'reasoning', text: 'plan' }],
+      waitOrigin: origin,
+    }
+    const { container, rerender } = render(<ReasoningWaitTrack {...overlayProps(waiting)} />)
+    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('54%')
+
+    rerender(<ReasoningWaitTrack {...overlayProps(null)} />)
+    expect(container.querySelector('[data-reasoning-wait="idle"]')).not.toBeNull()
+    expect(fillOf(container)).toBeNull()
+
+    rerender(<ReasoningWaitTrack {...overlayProps(waiting)} />)
+    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('54%')
+    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-color')).not.toBe('#4a4d52')
+  })
 })

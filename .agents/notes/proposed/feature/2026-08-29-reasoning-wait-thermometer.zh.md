@@ -40,7 +40,7 @@ idle 空槽始终挂载：4×96 CSS 像素，槽和边走主题 chrome，`pointe
 - details 打开时 track 仍在对话列；hero 时落在列角，active 时经 `--dsh-composer-height` 贴在已停靠的 composer 之上；不随 transcript 滚动。
 - 空槽不拦截点击，不进入无障碍树；槽和边走主题 chrome，不是 warning/danger。
 - headless、ACP、CLI 组合不加载此插件；web 上可用 profile patch 卸掉。
-- 填充从第一次 reasoning 证据起按高度 `8% + 92% × t`、颜色按未重映射的 t 走 iron scale；wait origin 在切换会话、刷新、重连后仍接得上；wait 结束时立刻 idle，直到抽空切片落地。
+- 填充从第一次 reasoning 证据起按高度 `8% + 92% × t`、颜色按未重映射的 t 走 iron scale；wait origin 在切换会话、刷新、重连后仍接得上；wait 结束时立刻 idle，直到抽空切片落地，包括未写出 `assistant/message` 的中止。
 - 组装后的 web 快照覆盖 idle 空槽。后续切片：240ms 抽空且颜色冻结；新 wait 打断抽空；reduced motion 直接 idle；进行中 reasoning wait 的快照。
 
 ## 风险

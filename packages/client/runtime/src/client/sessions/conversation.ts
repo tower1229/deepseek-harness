@@ -335,7 +335,8 @@ export interface PartialAssistant {
   /**
    * Session-log time of this open partial's first reasoning evidence
    * (`block-start` reasoning or the first `reasoning-delta`). Absent when this
-   * partial has not seen reasoning. This is not `firstTokenTime`.
+   * partial has not seen reasoning, or once the step is no longer open.
+   * This is not `firstTokenTime`.
    */
   waitOrigin?: number
 }

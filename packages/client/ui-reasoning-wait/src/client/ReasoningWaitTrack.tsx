@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
@@ -21,31 +21,52 @@ export type ReasoningWaitTrackProps = PropsRuntime<'conversation.overlay'>
 export function ReasoningWaitTrack({ useSession, sessionId }: ReasoningWaitTrackProps) {
   const partial = useSession(session => session.partial)
   const sessionKey = sessionId ?? ''
-  const previousRef = useRef<ReasoningWaitState>({ phase: 'idle' })
+  const reducedMotion = prefersReducedMotion()
+  const [state, setState] = useState<ReasoningWaitState>({ phase: 'idle' })
   const waiting = isReasoningWait(partial)
-  const now = useNow(waiting || previousRef.current.phase !== 'idle')
-  const state = advanceReasoningWait(previousRef.current, {
-    partial,
-    now,
-    reducedMotion: prefersReducedMotion(),
-    sessionKey,
-  })
-  previousRef.current = state
-  if (state.phase === 'idle') {
+  const now = useNow(waiting || state.phase !== 'idle')
+  const view = advanceReasoningWait(state, { partial, now, reducedMotion, sessionKey })
+
+  useLayoutEffect(() => {
+    setState(prev => {
+      const next = advanceReasoningWait(prev, { partial, now, reducedMotion, sessionKey })
+      return reasoningWaitStateEqual(prev, next) ? prev : next
+    })
+  }, [partial, now, reducedMotion, sessionKey])
+
+  if (view.phase === 'idle') {
     return <div className={css.track} data-reasoning-wait="idle" aria-hidden="true" />
   }
   return (
-    <div className={css.track} data-reasoning-wait={state.phase} aria-hidden="true">
+    <div className={css.track} data-reasoning-wait={view.phase} aria-hidden="true">
       <div
         className={css.fill}
         data-reasoning-wait-fill=""
         style={{
-          '--dsh-reasoning-wait-height': `${state.height * 100}%`,
-          '--dsh-reasoning-wait-color': state.color,
+          '--dsh-reasoning-wait-height': `${view.height * 100}%`,
+          '--dsh-reasoning-wait-color': view.color,
         } as CSSProperties}
       />
     </div>
   )
+}
+
+function reasoningWaitStateEqual(a: ReasoningWaitState, b: ReasoningWaitState): boolean {
+  if (a.phase !== b.phase) return false
+  if (a.phase === 'idle') return true
+  if (a.phase === 'thermometer') {
+    return b.phase === 'thermometer'
+      && a.sessionKey === b.sessionKey
+      && a.t === b.t
+      && a.height === b.height
+      && a.color === b.color
+  }
+  return b.phase === 'drain'
+    && a.sessionKey === b.sessionKey
+    && a.height === b.height
+    && a.color === b.color
+    && a.fromHeight === b.fromHeight
+    && a.startedAt === b.startedAt
 }
 
 function prefersReducedMotion(): boolean {

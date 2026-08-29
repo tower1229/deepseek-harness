@@ -92,6 +92,7 @@ export function reasoningWaitAppearance(
 /**
  * Advance HUD state by one frame. A new wait preempts drain. Reduced motion
  * skips drain. Switching session idles without draining the previous fill.
+ * An unchanged frame returns `previous` so a render-time state write can bail out.
  * @param previous - last frame, or idle on first paint.
  * @param input - live partial, clock, reduced-motion, and session key.
  * @returns idle, thermometer, or drain with frozen color.
@@ -102,9 +103,16 @@ export function advanceReasoningWait(
 ): ReasoningWaitState {
   const snapshot = reasoningWaitAppearance(input.partial, input.now)
   if (snapshot.phase === 'thermometer') {
+    if (
+      previous.phase === 'thermometer'
+      && previous.sessionKey === input.sessionKey
+      && previous.t === snapshot.t
+      && previous.height === snapshot.height
+      && previous.color === snapshot.color
+    ) return previous
     return { ...snapshot, sessionKey: input.sessionKey }
   }
-  if (input.reducedMotion) return { phase: 'idle' }
+  if (input.reducedMotion) return previous.phase === 'idle' ? previous : { phase: 'idle' }
   const sameSession = previous.phase !== 'idle' && previous.sessionKey === input.sessionKey
   if (previous.phase === 'thermometer' && sameSession) {
     return {
@@ -119,12 +127,14 @@ export function advanceReasoningWait(
   if (previous.phase === 'drain' && sameSession) {
     const elapsed = input.now - previous.startedAt
     if (elapsed >= DRAIN_MS) return { phase: 'idle' }
+    const height = previous.fromHeight * (1 - elapsed / DRAIN_MS)
+    if (height === previous.height) return previous
     return {
       ...previous,
-      height: previous.fromHeight * (1 - elapsed / DRAIN_MS),
+      height,
     }
   }
-  return { phase: 'idle' }
+  return previous.phase === 'idle' ? previous : { phase: 'idle' }
 }
 
 /** Documented stop hex when t is within one millisecond of that stop. */

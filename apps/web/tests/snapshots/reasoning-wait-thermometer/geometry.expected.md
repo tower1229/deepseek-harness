@@ -4,6 +4,7 @@
 - fill present: true
 - fill height positive: true
 - fill matches trough chrome: false
+- fill uses cool-metal start (#4a4d52): true
 - size: 4×96
 - pointer-events: none
 - aria-hidden: true

@@ -34,6 +34,7 @@ interface TrackFacts {
   fillPresent: boolean
   fillHeightPositive: boolean
   fillMatchesTrough: boolean
+  fillUsesCoolMetalStart: boolean
   width: number
   height: number
   pointerEvents: string
@@ -85,6 +86,12 @@ async function measureTrack(page: Page): Promise<TrackFacts> {
       || style.backgroundColor === dangerStyle.backgroundColor
       || style.borderTopColor === warnStyle.color
     const fillMatchesTrough = fillStyle.backgroundColor === style.backgroundColor
+    const cool = document.createElement('div')
+    cool.style.backgroundColor = '#4a4d52'
+    document.body.append(cool)
+    const coolStyle = getComputedStyle(cool)
+    const fillUsesCoolMetalStart = fillStyle.backgroundColor === coolStyle.backgroundColor
+    cool.remove()
     chrome.remove()
     warn.remove()
     danger.remove()
@@ -97,6 +104,7 @@ async function measureTrack(page: Page): Promise<TrackFacts> {
       fillPresent: true,
       fillHeightPositive: fillBox.height > 0,
       fillMatchesTrough,
+      fillUsesCoolMetalStart,
       width: Math.round(trackBox.width),
       height: Math.round(trackBox.height),
       pointerEvents: style.pointerEvents,
@@ -125,6 +133,7 @@ function renderGeometry(facts: TrackFacts): string {
     `- fill present: ${String(facts.fillPresent)}`,
     `- fill height positive: ${String(facts.fillHeightPositive)}`,
     `- fill matches trough chrome: ${String(facts.fillMatchesTrough)}`,
+    `- fill uses cool-metal start (#4a4d52): ${String(facts.fillUsesCoolMetalStart)}`,
     `- size: ${String(facts.width)}×${String(facts.height)}`,
     `- pointer-events: ${facts.pointerEvents}`,
     `- aria-hidden: ${String(facts.ariaHidden)}`,
@@ -218,6 +227,7 @@ describe('web e2e: reasoning-wait thermometer on the conversation HUD', () => {
       fillPresent: true,
       fillHeightPositive: true,
       fillMatchesTrough: false,
+      fillUsesCoolMetalStart: true,
       width: 4,
       height: 96,
       pointerEvents: 'none',

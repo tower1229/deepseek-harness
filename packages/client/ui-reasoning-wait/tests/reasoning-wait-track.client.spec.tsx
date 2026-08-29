@@ -68,38 +68,43 @@ describe('ReasoningWaitTrack', () => {
     const origin = 1_000
     let now = origin + 80_000
     vi.spyOn(Date, 'now').mockImplementation(() => now)
+    let frame: FrameRequestCallback | undefined
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frame = callback
+      return 1
+    })
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
     const waiting: PartialAssistant = {
       turn: 2,
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
     }
+    const ended = {
+      ...waiting,
+      blocks: [...waiting.blocks, { kind: 'text' as const, text: 'done' }],
+    }
     const { container, rerender } = render(<ReasoningWaitTrack {...overlayProps(waiting)} />)
     const fill = fillOf(container)
     expect(fill?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('100%')
     expect(fill?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#ffe28a')
 
-    rerender(<ReasoningWaitTrack {...overlayProps({
-      ...waiting,
-      blocks: [...waiting.blocks, { kind: 'text', text: 'done' }],
-    })} />)
+    rerender(<ReasoningWaitTrack {...overlayProps(ended)} />)
     expect(container.querySelector('[data-reasoning-wait="drain"]')).not.toBeNull()
     expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('100%')
     expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#ffe28a')
 
     now = origin + 80_000 + 120
-    rerender(<ReasoningWaitTrack {...overlayProps({
-      ...waiting,
-      blocks: [...waiting.blocks, { kind: 'text', text: 'done' }],
-    })} />)
+    act(() => {
+      frame?.(0)
+    })
     expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('50%')
     expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#ffe28a')
 
     now = origin + 80_000 + 240
-    rerender(<ReasoningWaitTrack {...overlayProps({
-      ...waiting,
-      blocks: [...waiting.blocks, { kind: 'text', text: 'done' }],
-    })} />)
+    act(() => {
+      frame?.(0)
+    })
     expect(container.querySelector('[data-reasoning-wait="idle"]')).not.toBeNull()
     expect(fillOf(container)).toBeNull()
   })

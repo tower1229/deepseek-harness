@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { PartialAssistant } from '@deepseek-ai/dsh-client-runtime/client'
-import { advanceReasoningWait, reasoningWaitAppearance } from '../src/client/thermometer.ts'
+import {
+  advanceReasoningWait,
+  reasoningWaitAppearance,
+  type ReasoningWaitState,
+} from '../src/client/thermometer.ts'
 
 const ORIGIN = 1_000
 const FULL_SCALE_MS = 37_000
@@ -210,6 +214,23 @@ describe('advanceReasoningWait', () => {
       partial: ended,
       reducedMotion: true,
     })).toEqual({ phase: 'idle' })
+  })
+
+  it('returns the previous object when the frame does not change', () => {
+    const idle: ReasoningWaitState = { phase: 'idle' }
+    expect(advanceReasoningWait(idle, {
+      partial: null,
+      now: 0,
+      reducedMotion: false,
+      sessionKey: '',
+    })).toBe(idle)
+
+    const hot = advanceReasoningWait({ phase: 'idle' }, input)
+    expect(advanceReasoningWait(hot, input)).toBe(hot)
+
+    const ended = { ...waiting(), blocks: [...waiting().blocks, { kind: 'text' as const, text: 'done' }] }
+    const draining = advanceReasoningWait(hot, { ...input, partial: ended })
+    expect(advanceReasoningWait(draining, { ...input, partial: ended })).toBe(draining)
   })
 
   it('snaps to idle when switching away from a waiting session instead of draining that fill', () => {

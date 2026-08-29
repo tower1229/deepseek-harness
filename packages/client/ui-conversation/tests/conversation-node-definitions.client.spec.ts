@@ -1070,7 +1070,7 @@ describe('assistant-step wait origin', () => {
     ])
     const started = snapshot(value)
     expect(started.legacy.partial).toMatchObject({
-      waitOrigin: 1_700_000_000_003,
+      waitOrigin: 1_700_000_000_002,
       streamTime: 1_700_000_000_003,
     })
     value.append(at(4, 'assistant/chunk', {
@@ -1080,12 +1080,12 @@ describe('assistant-step wait origin', () => {
     }))
     value.flush()
     expect(snapshot(value).legacy.partial).toMatchObject({
-      waitOrigin: 1_700_000_000_003,
+      waitOrigin: 1_700_000_000_002,
       streamTime: 1_700_000_000_004,
     })
   })
 
-  it('stamps waitOrigin at block-start reasoning, not at the later first token', () => {
+  it('stamps waitOrigin at step/start and keeps it across reasoning evidence', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -1100,11 +1100,11 @@ describe('assistant-step wait origin', () => {
       turn: 1,
       step: 1,
       blocks: [{ kind: 'reasoning', text: '' }],
-      waitOrigin: 1_700_000_000_003,
+      waitOrigin: 1_700_000_000_002,
     })
     expect(started.order).toEqual([])
     const running = node(started, 'assistant-step')?.data as AssistantChatData
-    expect(running.waitOrigin).toBe(1_700_000_000_003)
+    expect(running.waitOrigin).toBe(1_700_000_000_002)
     expect(running.finalNode?.timing?.firstTokenTime).toBeUndefined()
 
     value.append(at(4, 'assistant/chunk', {
@@ -1114,7 +1114,7 @@ describe('assistant-step wait origin', () => {
     }))
     value.flush()
     const withDelta = snapshot(value)
-    expect(withDelta.legacy.partial?.waitOrigin).toBe(1_700_000_000_003)
+    expect(withDelta.legacy.partial?.waitOrigin).toBe(1_700_000_000_002)
     expect(withDelta.order).not.toEqual([])
   })
 
@@ -1128,16 +1128,23 @@ describe('assistant-step wait origin', () => {
         chunk: { type: 'reasoning-delta', index: 0, text: 'delta only' },
       }),
     ])
-    expect(snapshot(value).legacy.partial?.waitOrigin).toBe(1_700_000_000_005)
+    expect(snapshot(value).legacy.partial?.waitOrigin).toBe(1_700_000_000_002)
   })
 
-  it('keeps TTFT silence, text tails, tool-call tails, and settled streams without a wait origin', () => {
-    const silence = assembler([
+  it('projects partial during TTFT after step/start before any assistant chunk', () => {
+    const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
     ])
-    expect(snapshot(silence).legacy.partial).toBeNull()
+    expect(snapshot(value).legacy.partial).toMatchObject({
+      turn: 1,
+      step: 1,
+      blocks: [],
+      waitOrigin: 1_700_000_000_002,
+    })
+  })
 
+  it('keeps text tails, tool-call tails, and settled streams from projecting wait into the meter', () => {
     const text = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -1149,8 +1156,8 @@ describe('assistant-step wait origin', () => {
     ])
     expect(snapshot(text).legacy.partial).toMatchObject({
       blocks: [{ kind: 'text', text: 'hello' }],
+      waitOrigin: 1_700_000_000_002,
     })
-    expect(snapshot(text).legacy.partial).not.toHaveProperty('waitOrigin')
 
     const afterReasoning = assembler([
       at(1, 'turn/start', { turn: 1 }),
@@ -1172,7 +1179,7 @@ describe('assistant-step wait origin', () => {
       }),
     ])
     expect(snapshot(afterReasoning).legacy.partial).toMatchObject({
-      waitOrigin: 1_700_000_000_003,
+      waitOrigin: 1_700_000_000_002,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
     })
 
@@ -1183,7 +1190,7 @@ describe('assistant-step wait origin', () => {
     }))
     afterReasoning.flush()
     expect(snapshot(afterReasoning).legacy.partial?.blocks.at(-1)).toMatchObject({ kind: 'text' })
-    expect(snapshot(afterReasoning).legacy.partial?.waitOrigin).toBe(1_700_000_000_003)
+    expect(snapshot(afterReasoning).legacy.partial?.waitOrigin).toBe(1_700_000_000_002)
 
     const toolTail = assembler([
       at(1, 'turn/start', { turn: 2 }),
@@ -1260,7 +1267,7 @@ describe('assistant-step wait origin', () => {
         chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
       }),
     ])
-    expect(snapshot(value).legacy.partial?.waitOrigin).toBe(1_700_000_000_003)
+    expect(snapshot(value).legacy.partial?.waitOrigin).toBe(1_700_000_000_002)
 
     value.append(at(4, 'step/end', { turn: 1, step: 1 }))
     value.flush()

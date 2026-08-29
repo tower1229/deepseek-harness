@@ -45,6 +45,11 @@ function fillDashAt(origin: number, now: number): string {
   return ringStrokeDasharray(snap.height)
 }
 
+function fillStroke(fill: SVGCircleElement | null): string {
+  if (fill === null) return ''
+  return getComputedStyle(fill).stroke
+}
+
 describe('ReasoningWaitTrack', () => {
   it('renders an idle ring hidden from the accessibility tree, with no fill arc', () => {
     const { container } = render(<ReasoningWaitTrack {...meterProps()} />)
@@ -55,13 +60,13 @@ describe('ReasoningWaitTrack', () => {
     expect(container.querySelector('[role]')).toBeNull()
   })
 
-  it('stays idle for a current session with no reasoning-wait tail', () => {
-    const { container } = render(<ReasoningWaitTrack {...meterProps(null)} />)
+  it('stays idle for a current session without wait origin', () => {
+    const { container } = render(<ReasoningWaitTrack {...meterProps({ turn: 1, step: 1, blocks: [] })} />)
     expect(container.querySelector('[data-reasoning-wait="idle"]')).not.toBeNull()
     expect(fillOf(container)).toBeNull()
   })
 
-  it('fills counterclockwise from the bottom at minimum arc and cool metal when wait starts', () => {
+  it('fills clockwise from the bottom at minimum arc and cool metal when wait starts', () => {
     const origin = 5_000
     vi.spyOn(Date, 'now').mockReturnValue(origin)
     const { container } = render(<ReasoningWaitTrack {...meterProps({
@@ -73,10 +78,24 @@ describe('ReasoningWaitTrack', () => {
     const fill = fillOf(container)
     expect(container.querySelector('[data-reasoning-wait="thermometer"]')).not.toBeNull()
     expect(fill).not.toBeNull()
-    expect(fill?.getAttribute('stroke')).toBe('#4a4d52')
+    expect(fillStroke(fill)).toBe('rgb(74, 77, 82)')
     expect(fill?.getAttribute('transform')).toBe(RING_FILL_TRANSFORM)
     expect(fill?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
-    expect(fill?.getAttribute('stroke-dasharray')?.startsWith('-')).toBe(true)
+    expect(fill?.getAttribute('stroke-dasharray')?.startsWith('-')).toBe(false)
+  })
+
+  it('shows thermometer fill during TTFT with empty blocks and wait origin only', () => {
+    const origin = 3_000
+    vi.spyOn(Date, 'now').mockReturnValue(origin)
+    const { container } = render(<ReasoningWaitTrack {...meterProps({
+      turn: 1,
+      step: 1,
+      blocks: [],
+      waitOrigin: origin,
+    })} />)
+    expect(container.querySelector('[data-reasoning-wait="thermometer"]')).not.toBeNull()
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
+    expect(fillStroke(fillOf(container))).toBe('rgb(74, 77, 82)')
   })
 
   it('drains arc with frozen color when reasoning leaves the tail, then idles', () => {
@@ -94,6 +113,7 @@ describe('ReasoningWaitTrack', () => {
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
+      streamTime: origin + 80_000,
     }
     const ended = {
       ...waiting,
@@ -102,19 +122,19 @@ describe('ReasoningWaitTrack', () => {
     const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
     const fill = fillOf(container)
     expect(fill?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(1))
-    expect(fill?.getAttribute('stroke')).toBe('#ffe28a')
+    expect(fillStroke(fill)).toBe('rgb(255, 226, 138)')
 
     rerender(<ReasoningWaitTrack {...meterProps(ended)} />)
     expect(container.querySelector('[data-reasoning-wait="drain"]')).not.toBeNull()
     expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(1))
-    expect(fillOf(container)?.getAttribute('stroke')).toBe('#ffe28a')
+    expect(fillStroke(fillOf(container))).toBe('rgb(255, 226, 138)')
 
     now = origin + 80_000 + 120
     act(() => {
       frame?.(0)
     })
     expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.5))
-    expect(fillOf(container)?.getAttribute('stroke')).toBe('#ffe28a')
+    expect(fillStroke(fillOf(container))).toBe('rgb(255, 226, 138)')
 
     now = origin + 80_000 + 240
     act(() => {
@@ -122,6 +142,32 @@ describe('ReasoningWaitTrack', () => {
     })
     expect(container.querySelector('[data-reasoning-wait="idle"]')).not.toBeNull()
     expect(fillOf(container)).toBeNull()
+  })
+
+  it('extrapolates from waitOrigin alone during TTFT before streamTime exists', () => {
+    const origin = 1_000
+    let wallNow = origin + 60_000
+    vi.spyOn(Date, 'now').mockImplementation(() => wallNow)
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback)
+      return frames.length
+    })
+    const partial: PartialAssistant = {
+      turn: 1,
+      step: 1,
+      blocks: [],
+      waitOrigin: origin,
+    }
+    const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(partial)} />)
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
+
+    wallNow = origin + 65_000
+    rerender(<ReasoningWaitTrack {...meterProps(partial)} />)
+    act(() => {
+      frames[0]?.(0)
+    })
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 5_000))
   })
 
   it('extrapolates from streamTime when wall clock is ahead of session log', () => {
@@ -183,6 +229,7 @@ describe('ReasoningWaitTrack', () => {
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
+      streamTime: origin + 10_000,
     }
     const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
     expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 10_000))
@@ -193,7 +240,7 @@ describe('ReasoningWaitTrack', () => {
 
     rerender(<ReasoningWaitTrack {...meterProps(waiting)} />)
     expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 10_000))
-    expect(fillOf(container)?.getAttribute('stroke')).not.toBe('#4a4d52')
+    expect(fillStroke(fillOf(container))).not.toBe('rgb(74, 77, 82)')
   })
 
   it('preempts drain when a new wait starts, from minimum arc and cool metal', () => {
@@ -205,6 +252,7 @@ describe('ReasoningWaitTrack', () => {
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
+      streamTime: origin + 10_000,
     }
     const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
     rerender(<ReasoningWaitTrack {...meterProps({
@@ -223,7 +271,7 @@ describe('ReasoningWaitTrack', () => {
     })} />)
     expect(container.querySelector('[data-reasoning-wait="thermometer"]')).not.toBeNull()
     expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
-    expect(fillOf(container)?.getAttribute('stroke')).toBe('#4a4d52')
+    expect(fillStroke(fillOf(container))).toBe('rgb(74, 77, 82)')
   })
 
   it('snaps to idle under reduced motion when wait ends, without draining', () => {
@@ -235,6 +283,7 @@ describe('ReasoningWaitTrack', () => {
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
+      streamTime: origin + 10_000,
     }
     const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
     expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 10_000))

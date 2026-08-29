@@ -56,17 +56,18 @@ export interface ReasoningWaitInput {
 }
 
 /**
- * True when the visible session's open partial is in reasoning wait:
- * wait origin is set and reasoning is the streaming tail.
+ * True when the open partial is in the thinking window: from step start through
+ * reasoning streaming, until a text block becomes the streaming tail.
  * @param partial - visible session's open assistant partial, or none.
  * @returns whether the thermometer should fill from this partial.
  */
 export function isReasoningWait(
   partial: PartialAssistant | null | undefined,
 ): partial is PartialAssistant & { readonly waitOrigin: number } {
-  return partial != null
-    && partial.waitOrigin !== undefined
-    && partial.blocks.at(-1)?.kind === 'reasoning'
+  if (partial == null || partial.waitOrigin === undefined) return false
+  const tail = partial.blocks.at(-1)
+  if (tail?.kind === 'text') return false
+  return partial.blocks.length === 0 || tail?.kind === 'reasoning'
 }
 
 /**

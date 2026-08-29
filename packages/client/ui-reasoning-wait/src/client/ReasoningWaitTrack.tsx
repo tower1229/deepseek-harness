@@ -14,9 +14,8 @@ import css from './ReasoningWaitTrack.module.css'
 export type ReasoningWaitTrackProps = PropsRuntime<'conversation.input.meter'>
 
 /**
- * Composer trailing reasoning-wait ring. Idle track, counterclockwise iron-scale
- * fill from the bottom while the current session's open partial has reasoning as
- * its streaming tail,
+ * Composer trailing reasoning-wait ring. Idle track, clockwise iron-scale fill
+ * from the bottom from step start through reasoning streaming until text streams,
  * or a 240ms arc drain with frozen color when that wait ends. A new wait
  * preempts drain. Reduced motion snaps wait end to idle. Decorative: hidden
  * from the accessibility tree and transparent to pointer events.

@@ -28,16 +28,10 @@ function expectedHeight(linearT: number): number {
 }
 
 describe('reasoningWaitAppearance', () => {
-  it('stays idle without a current session, without wait origin, or when reasoning is not the tail', () => {
+  it('stays idle without a current session, without wait origin, or when text is the tail', () => {
     expect(reasoningWaitAppearance(undefined, ORIGIN)).toEqual({ phase: 'idle' })
     expect(reasoningWaitAppearance(null, ORIGIN)).toEqual({ phase: 'idle' })
     expect(reasoningWaitAppearance({ turn: 1, step: 1, blocks: [] }, ORIGIN)).toEqual({ phase: 'idle' })
-    expect(reasoningWaitAppearance({
-      turn: 1,
-      step: 1,
-      blocks: [],
-      waitOrigin: ORIGIN,
-    }, ORIGIN)).toEqual({ phase: 'idle' })
     expect(reasoningWaitAppearance({
       turn: 1,
       step: 1,
@@ -50,6 +44,20 @@ describe('reasoningWaitAppearance', () => {
       blocks: [{ kind: 'reasoning', text: 'plan' }, { kind: 'tool-call', callId: 'c', name: 'read', argsRaw: '{}' }],
       waitOrigin: ORIGIN,
     }, ORIGIN)).toEqual({ phase: 'idle' })
+  })
+
+  it('fills during TTFT when wait origin is set but no blocks have arrived yet', () => {
+    expect(reasoningWaitAppearance({
+      turn: 1,
+      step: 1,
+      blocks: [],
+      waitOrigin: ORIGIN,
+    }, ORIGIN)).toEqual({
+      phase: 'thermometer',
+      t: 0,
+      height: 0.08,
+      color: '#4a4d52',
+    })
   })
 
   it('opens at minimum fill and cool metal, then eases height while color follows unmapped t', () => {

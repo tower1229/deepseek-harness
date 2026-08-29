@@ -7,12 +7,12 @@ import {
 } from '../src/client/ring-geometry.ts'
 
 describe('ring geometry', () => {
-  it('starts at the bottom and fills counterclockwise via negative dash length', () => {
+  it('starts at the bottom and fills clockwise via positive dash length', () => {
     expect(RING_FILL_TRANSFORM).toBe('rotate(90 7 7)')
     const dash = ringStrokeDasharray(0.5)
     const arc = Number.parseFloat(dash.split(/\s+/)[0] ?? '0')
-    expect(arc).toBeLessThan(0)
-    expect(arc).toBe(-ringArcLength(0.5))
-    expect(dash).toBe(`${-ringArcLength(0.5)} ${RING_CIRCUMFERENCE}`)
+    expect(arc).toBeGreaterThan(0)
+    expect(arc).toBe(ringArcLength(0.5))
+    expect(dash).toBe(`${ringArcLength(0.5)} ${RING_CIRCUMFERENCE}`)
   })
 })

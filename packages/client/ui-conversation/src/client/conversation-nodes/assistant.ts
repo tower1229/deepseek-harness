@@ -288,7 +288,10 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
   },
   start: (_context, match) => {
     if (match.event.type !== 'step/start') throw new Error('assistant-step start requires step/start')
-    return initialState(match.event.data.turn, match.event.data.step)
+    return {
+      ...initialState(match.event.data.turn, match.event.data.step),
+      waitOrigin: match.event.time,
+    }
   },
   update: (context, match) => {
     if (match.event.type === 'assistant/chunk') return updateChunk(context.state, match)
@@ -307,7 +310,7 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
     return context.state
   },
   publication: (match) => {
-    if (match.event.type === 'step/start') return 'none'
+    if (match.event.type === 'step/start') return 'immediate'
     if (match.event.type !== 'assistant/chunk') return 'immediate'
     const type = match.event.data.chunk.type
     return type === 'usage' || type === 'finish' ? 'none' : 'animation-frame'

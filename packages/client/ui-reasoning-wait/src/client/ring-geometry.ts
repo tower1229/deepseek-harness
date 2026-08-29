@@ -15,13 +15,12 @@ export function ringArcLength(height: number): number {
 }
 
 /**
- * stroke-dasharray pair for a counterclockwise ring fill from the bottom.
- * Negative dash length reverses stroke direction; {@link RING_FILL_TRANSFORM}
- * places the stroke origin at 6 o'clock.
+ * stroke-dasharray pair for a clockwise ring fill from the bottom.
+ * {@link RING_FILL_TRANSFORM} places the stroke origin at 6 o'clock.
  * @param height - clamped fill fraction.
  * @returns dash and gap lengths for SVG strokeDasharray.
  */
 export function ringStrokeDasharray(height: number): string {
   const arc = ringArcLength(height)
-  return `${-arc} ${RING_CIRCUMFERENCE}`
+  return `${arc} ${RING_CIRCUMFERENCE}`
 }

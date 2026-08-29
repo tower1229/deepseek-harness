@@ -31,6 +31,7 @@ interface AssistantState {
   readonly firstVisibleSeq: number | undefined
   readonly firstVisibleTime: number | undefined
   readonly firstTokenTime: number | undefined
+  readonly waitOrigin: number | undefined
   readonly hidden: boolean
   readonly final: ConversationMatch | undefined
   readonly usage: unknown
@@ -44,10 +45,16 @@ function initialState(turn: number, step: number): AssistantState {
     firstVisibleSeq: undefined,
     firstVisibleTime: undefined,
     firstTokenTime: undefined,
+    waitOrigin: undefined,
     hidden: false,
     final: undefined,
     usage: undefined,
   }
+}
+
+function isReasoningEvidence(chunk: { readonly type: string; readonly blockType?: string }): boolean {
+  return chunk.type === 'reasoning-delta'
+    || (chunk.type === 'block-start' && chunk.blockType === 'reasoning')
 }
 
 function compactBlocks(blocks: readonly (AssistantBlock | undefined)[]): AssistantBlock[] {
@@ -127,6 +134,9 @@ function updateChunk(state: AssistantState, match: ConversationMatch): Assistant
       : {},
     ...firstToken && state.firstTokenTime === undefined
       ? { firstTokenTime: match.event.time }
+      : {},
+    ...isReasoningEvidence(chunk) && state.waitOrigin === undefined
+      ? { waitOrigin: match.event.time }
       : {},
   }
 }
@@ -237,6 +247,9 @@ function projectAssistant(context: ConversationNodeContext<AssistantState>): Ass
       time,
       ...state.usage === undefined ? {} : { usage: state.usage },
       ...settled === undefined ? {} : { finalNode: settled },
+      ...settled === undefined && state.waitOrigin !== undefined
+        ? { waitOrigin: state.waitOrigin }
+        : {},
     },
   }
 }
@@ -297,7 +310,7 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
   buildViewNode: (context) => {
     const projected = projectAssistant(context)
     if (projected === undefined) return null
-    if (projected.settled === undefined && !projected.visible) {
+    if (projected.settled === undefined && !projected.visible && projected.data.waitOrigin === undefined) {
       const state = context.state ?? fallbackState(context)
       if (state === undefined) return null
       const current = context.current.get('chat')

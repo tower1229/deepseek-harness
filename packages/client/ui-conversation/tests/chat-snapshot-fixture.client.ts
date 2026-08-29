@@ -211,6 +211,7 @@ export function chatSnapshotFixture(input: {
         step: legacy.partial.step,
         blocks: legacy.partial.blocks,
         time: 0,
+        ...legacy.partial.waitOrigin === undefined ? {} : { waitOrigin: legacy.partial.waitOrigin },
       },
     })
   }

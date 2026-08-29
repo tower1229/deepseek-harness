@@ -6,7 +6,7 @@ import type {
   PartialAssistant, RunningToolCall,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { sessionRecallLabels } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ChatNode } from '../contract/chat-nodes.ts'
+import type { AssistantChatData, ChatNode } from '../contract/chat-nodes.ts'
 import { isRunningTool } from '../contract/chat-nodes.ts'
 
 const EMPTY_KEYS: readonly string[] = []
@@ -246,11 +246,21 @@ const EMPTY_CONTRIBUTION: LegacyContribution = {
   running: null,
 }
 
+function runningPartial(data: AssistantChatData): PartialAssistant {
+  return {
+    turn: data.turn,
+    step: data.step,
+    blocks: data.blocks,
+    ...data.waitOrigin === undefined ? {} : { waitOrigin: data.waitOrigin },
+  }
+}
+
 function legacyContribution(raw: ChatConversationViewNode): LegacyContribution {
   const node = raw as ChatNode
   // Content-free settled Assistants remain in the finalized compatibility
-  // stream so StatsLine preserves its pre-assembly step counts; hidden running
-  // attempts have no final Node to contribute.
+  // stream so StatsLine preserves its pre-assembly step counts. A hidden
+  // running attempt contributes a partial only when waitOrigin is set, so
+  // reasoning wait can start at block-start before visible Think content.
   if (raw.visibility !== 'visible' && node.kind !== 'assistant-step') return EMPTY_CONTRIBUTION
   switch (node.kind) {
     case 'user':
@@ -265,11 +275,11 @@ function legacyContribution(raw: ChatConversationViewNode): LegacyContribution {
     case 'assistant-step': {
       const data = node.data
       if (data.status === 'running') {
-        if (raw.visibility !== 'visible') return EMPTY_CONTRIBUTION
+        if (raw.visibility !== 'visible' && data.waitOrigin === undefined) return EMPTY_CONTRIBUTION
         return {
           anchorSeq: node.anchorSeq,
           nodes: EMPTY_LIST,
-          partial: { turn: data.turn, step: data.step, blocks: data.blocks },
+          partial: runningPartial(data),
           running: null,
         }
       }
@@ -315,6 +325,7 @@ function sameContribution(left: LegacyContribution | undefined, right: LegacyCon
     && left.partial?.blocks === right.partial?.blocks
     && left.partial?.turn === right.partial?.turn
     && left.partial?.step === right.partial?.step
+    && left.partial?.waitOrigin === right.partial?.waitOrigin
     && left.running === right.running
     && sameReferences(left.nodes, right.nodes)
 }
@@ -402,7 +413,8 @@ class LegacySliceBuilder {
       .findLast(value => value.partial !== null)?.partial ?? null
     if (this.partial?.blocks !== partial?.blocks
       || this.partial?.turn !== partial?.turn
-      || this.partial?.step !== partial?.step) this.partial = partial
+      || this.partial?.step !== partial?.step
+      || this.partial?.waitOrigin !== partial?.waitOrigin) this.partial = partial
   }
 
   private updateTimeline(timeline: ConversationTimelineSnapshot): void {
@@ -469,6 +481,7 @@ function partialContributionChanged(
   return previous?.partial?.blocks !== next.partial?.blocks
     || previous?.partial?.turn !== next.partial?.turn
     || previous?.partial?.step !== next.partial?.step
+    || previous?.partial?.waitOrigin !== next.partial?.waitOrigin
     || (((previous?.partial ?? null) !== null || next.partial !== null)
       && previous?.anchorSeq !== next.anchorSeq)
 }

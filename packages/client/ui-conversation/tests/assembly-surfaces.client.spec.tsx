@@ -34,6 +34,15 @@ function AppRoot({ renderSlot }: AppRootProps) {
   return <>{renderSlot('conversation', {})}</>
 }
 
+function TwoColumnRoot({ renderSlot }: AppRootProps) {
+  return (
+    <div>
+      <div data-testid="conversation-column">{renderSlot('conversation', {})}</div>
+      <div data-testid="details-column">{renderSlot('details', {})}</div>
+    </div>
+  )
+}
+
 const LAYOUT_CHILDREN = {
   'conversation': { kind: 'single', scope: 'session-maybe' },
   'details': { kind: 'single', scope: 'session' },
@@ -111,6 +120,28 @@ describe('resident composer', () => {
     const scroller = view.container.querySelector('[data-conversation-scroll]')
     expect(hud?.contains(overlayProbe)).toBe(true)
     expect(scroller?.contains(overlayProbe)).toBe(false)
+    await runtime.dispose()
+  })
+
+  it('keeps the column HUD out of the details occupant', async () => {
+    const runtime = await SlotTestRuntime.create()
+    runtime.provide('connection', { api: { settings: {} }, isLoopback: false })
+    // The plugin injects both; these specs exercise no settings path.
+    runtime.provide('remote', { $on: () => () => {} })
+    runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
+    runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
+    const locale = new LocaleRuntime(runtime.ctx)
+    runtime.provide('locale', locale)
+    runtime.slots.installLocale(locale)
+    await runtime.root.declare(LAYOUT_CHILDREN, TwoColumnRoot)
+    await runtime.mount({ inject: [...inject], apply })
+    runtime.slots.register({ name: 'conversation.overlay', id: 'probe' }, function OverlayProbe() {
+      return <div data-testid="overlay-probe" />
+    })
+    const view = runtime.renderRoot()
+    const overlayProbe = view.getByTestId('overlay-probe')
+    expect(view.getByTestId('conversation-column').contains(overlayProbe)).toBe(true)
+    expect(view.getByTestId('details-column').contains(overlayProbe)).toBe(false)
     await runtime.dispose()
   })
 

@@ -26,6 +26,11 @@ export interface AssistantChatData {
   readonly time: number
   readonly usage?: unknown
   readonly finalNode?: AssistantMessageNode
+  /**
+   * Session-log time of the first reasoning evidence on this running partial.
+   * Present only while `status` is `running` and that evidence has arrived.
+   */
+  readonly waitOrigin?: number
 }
 
 /** Settled or interrupted Assistant payload with its durable presentation node. */

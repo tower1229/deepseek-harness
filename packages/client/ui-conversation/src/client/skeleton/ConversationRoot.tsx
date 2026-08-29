@@ -41,8 +41,8 @@ export function ConversationRoot({
   const seatResizeRef = useCallback((seat: HTMLDivElement | null): void => {
     seatObserver.current?.disconnect()
     seatObserver.current = null
-    const column = seat?.closest('[data-conversation-root]') ?? null
-    if (seat === null || column === null) return
+    const column = seat?.closest('[data-conversation-root]')
+    if (seat === null || !(column instanceof HTMLElement)) return
     seatObserver.current = new ResizeObserver(() => {
       column.style.setProperty('--dsh-composer-height', `${seat.offsetHeight}px`)
     })

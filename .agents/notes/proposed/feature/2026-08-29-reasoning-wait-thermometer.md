@@ -14,7 +14,7 @@ Ship a web-profile thermometer in the conversation column's bottom-right: an alw
 
 One new Web client UI plugin, [`@deepseek-ai/dsh-client-ui-reasoning-wait`](../../../../packages/client/ui-reasoning-wait/README.md), owns the thermometer presentation and registers additively into `'conversation.overlay'`. It does not replace the conversation occupant. [`ui-conversation`](../../../../packages/client/ui-conversation/README.md) declares that list as a session-maybe column-fixed HUD. The chrome does not hang on `shell.overlay` (viewport-sized, no composer-height) or `conversation.input.overlay` (composer chrome).
 
-The first slice mounts the idle trough: 4×96 CSS pixels, theme chrome for trough and edge, `pointer-events: none`, `aria-hidden`, present on hero (column corner; the composer is centered) and in a live session (above the docked composer via `--dsh-composer-height`), outside the transcript scroller and outside details. Later slices add wait-origin projection on the in-flight assistant partial (no new session event), iron-scale fill, drain, reduced-motion snap, and the assembled web snapshot.
+The idle trough is always mounted: 4×96 CSS pixels, theme chrome for trough and edge, `pointer-events: none`, `aria-hidden`, present on hero (column corner; the composer is centered) and in a live session (above the docked composer via `--dsh-composer-height`), outside the transcript scroller and outside details. Wait-origin projection lives on the in-flight assistant partial in [`ui-conversation`](../../../../packages/client/ui-conversation/README.md) (no new session event). Iron-scale fill lives in this plugin. Idle chrome is pinned by the assembled web snapshot in `apps/web/tests/reasoning-wait-idle-track.e2e.ts`. Later slices add drain, reduced-motion snap, and a snapshot of in-flight reasoning wait.
 
 Glossary: [CONTEXT.md](../../../../CONTEXT.md). Fill color exception: [ADR 0001](../../../../docs/adr/0001-physical-iron-scale-fill.md).
 
@@ -40,7 +40,8 @@ Glossary: [CONTEXT.md](../../../../CONTEXT.md). Fill color exception: [ADR 0001]
 - The track stays on the conversation column when details is open, sits in the column corner on hero and above the docked composer via `--dsh-composer-height` when active, and does not scroll with the transcript.
 - The trough does not intercept clicks and is omitted from the accessibility tree; trough and edge use theme chrome, not warning/danger.
 - Headless, ACP, and CLI compositions do not load this plugin; a profile patch can unload it from web.
-- Later slices: fill from first reasoning evidence with height `8% + 92% × t` and iron-scale color on unmapped t; drain 240ms with frozen color; new wait preempts drain; reduced motion snaps to idle; wait origin survives session switch, reload, and reconnect; assembled keyless web snapshot covers idle and at least one reasoning-wait visible state.
+- Fill starts at first reasoning evidence with height `8% + 92% × t` and iron-scale color on unmapped t; wait origin survives session switch, reload, and reconnect; wait end snaps to idle until drain ships.
+- The assembled web snapshot covers the idle trough. Later slices: drain 240ms with frozen color; new wait preempts drain; reduced motion snaps to idle; snapshot of in-flight reasoning wait.
 
 ## Risks
 

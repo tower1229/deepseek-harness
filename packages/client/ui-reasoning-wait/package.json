@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-reasoning-wait",
-  "description": "Conversation-column idle track for the reasoning-wait thermometer",
+  "description": "Conversation-column reasoning-wait thermometer",
   "version": "0.1.1-rc.2",
   "type": "module",
   "main": "lib/index.js",

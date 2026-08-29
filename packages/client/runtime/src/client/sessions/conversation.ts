@@ -332,6 +332,12 @@ export interface PartialAssistant {
   turn: number
   step: number
   blocks: readonly AssistantBlock[]
+  /**
+   * Session-log time of this open partial's first reasoning evidence
+   * (`block-start` reasoning or the first `reasoning-delta`). Absent when this
+   * partial has not seen reasoning. This is not `firstTokenTime`.
+   */
+  waitOrigin?: number
 }
 
 /** History-open lifecycle of a Session window. */

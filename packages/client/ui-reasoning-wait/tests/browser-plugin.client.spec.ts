@@ -73,14 +73,28 @@ describe('ui-reasoning-wait invariant companion', () => {
 })
 
 describe('profile composition', () => {
-  it('ships in the web-app patch and is absent from headless and base', () => {
+  it('ships in the web-app patch and is absent from headless, base, ACP, and CLI presets', () => {
     const web = readFileSync(resolve(repoRoot, 'packages/bundle/web-app/cordis.patch.yml'), 'utf8')
     const headless = readFileSync(resolve(repoRoot, 'packages/bundle/headless/cordis.patch.yml'), 'utf8')
     const base = readFileSync(resolve(repoRoot, 'packages/bundle/base/cordis.patch.yml'), 'utf8')
     const acp = readFileSync(resolve(repoRoot, 'examples/acp-agent/cordis.yml'), 'utf8')
+    const cliPreset = readFileSync(resolve(repoRoot, 'apps/cli/config/agent-presets/standard/agent.cordis.yml'), 'utf8')
     expect(web).toContain(PKG)
     expect(headless).not.toContain(PKG)
     expect(base).not.toContain(PKG)
     expect(acp).not.toContain(PKG)
+    expect(cliPreset).not.toContain(PKG)
+  })
+})
+
+describe('idle trough chrome', () => {
+  it('declares a 4×96 theme-chrome trough that ignores pointer events', () => {
+    const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/client/ReasoningWaitTrack.module.css'), 'utf8')
+    expect(source).toMatch(/width:\s*4px/)
+    expect(source).toMatch(/height:\s*96px/)
+    expect(source).toContain('pointer-events: none')
+    expect(source).toContain('var(--dsw-alias-bg-layer-1)')
+    expect(source).toContain('var(--dsw-alias-border-l2)')
+    expect(source).not.toMatch(/state-warn|hover-danger/)
   })
 })

@@ -14,7 +14,7 @@ Status: proposed
 
 一个新的 Web 客户端 UI 插件 [`@deepseek-ai/dsh-client-ui-reasoning-wait`](../../../../packages/client/ui-reasoning-wait/README.zh.md) 拥有温度计呈现，并以加性方式注册进 `'conversation.overlay'`。它不替换对话列 occupant。[`ui-conversation`](../../../../packages/client/ui-conversation/README.zh.md) 把该列表声明为 session-maybe 的列固定 HUD。这层 chrome 不挂在 `shell.overlay`（视口大小、没有 composer-height）或 `conversation.input.overlay`（输入 chrome）上。
 
-第一刀挂上 idle 空槽：4×96 CSS 像素，槽和边走主题 chrome，`pointer-events: none`，`aria-hidden`，hero（列角；composer 居中）与有可见会话时（经 `--dsh-composer-height` 贴在已停靠的 composer 之上）都在，不进 transcript 滚动容器，也不进 details。后续切片补上 in-flight assistant partial 上的 wait origin 投影（不新增 session event）、iron-scale 填充、抽空、reduced-motion 跳过，以及组装后的 web 快照。
+idle 空槽始终挂载：4×96 CSS 像素，槽和边走主题 chrome，`pointer-events: none`，`aria-hidden`，hero（列角；composer 居中）与有可见会话时（经 `--dsh-composer-height` 贴在已停靠的 composer 之上）都在，不进 transcript 滚动容器，也不进 details。wait origin 投影落在 [`ui-conversation`](../../../../packages/client/ui-conversation/README.zh.md) 的 in-flight assistant partial 上（不新增 session event）。iron-scale 填充落在此插件中。idle chrome 由 `apps/web/tests/reasoning-wait-idle-track.e2e.ts` 的组装 web 快照钉住。后续切片补上抽空、reduced-motion 跳过，以及进行中 reasoning wait 的快照。
 
 术语表：[CONTEXT.md](../../../../CONTEXT.md)。填充色例外：[ADR 0001](../../../../docs/adr/0001-physical-iron-scale-fill.zh.md)。
 
@@ -40,7 +40,8 @@ Status: proposed
 - details 打开时 track 仍在对话列；hero 时落在列角，active 时经 `--dsh-composer-height` 贴在已停靠的 composer 之上；不随 transcript 滚动。
 - 空槽不拦截点击，不进入无障碍树；槽和边走主题 chrome，不是 warning/danger。
 - headless、ACP、CLI 组合不加载此插件；web 上可用 profile patch 卸掉。
-- 后续切片：第一次 reasoning 证据起按高度 `8% + 92% × t`、颜色按未重映射的 t 走 iron scale 填充；240ms 抽空且颜色冻结；新 wait 打断抽空；reduced motion 直接 idle；wait origin 在切换会话、刷新、重连后仍接得上；组装后的 keyless web 快照覆盖 idle 与至少一次 reasoning wait 可见态。
+- 填充从第一次 reasoning 证据起按高度 `8% + 92% × t`、颜色按未重映射的 t 走 iron scale；wait origin 在切换会话、刷新、重连后仍接得上；wait 结束时立刻 idle，直到抽空切片落地。
+- 组装后的 web 快照覆盖 idle 空槽。后续切片：240ms 抽空且颜色冻结；新 wait 打断抽空；reduced motion 直接 idle；进行中 reasoning wait 的快照。
 
 ## 风险
 

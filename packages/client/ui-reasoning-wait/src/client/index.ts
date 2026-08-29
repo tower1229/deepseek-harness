@@ -1,5 +1,5 @@
 /**
- * Reasoning-wait plugin, browser half: contributes the idle track to the
+ * Reasoning-wait plugin, browser half: contributes the thermometer track to the
  * conversation column's HUD overlay. Geometry and placement belong to
  * ui-conversation's overlay host; this entry is decorative chrome.
  */
@@ -14,7 +14,7 @@ export type { ReasoningWaitTrackProps } from './ReasoningWaitTrack.tsx'
 export const inject = ['slots']
 
 /**
- * Client plugin body: register the idle track on the column HUD list.
+ * Client plugin body: register the thermometer track on the column HUD list.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {

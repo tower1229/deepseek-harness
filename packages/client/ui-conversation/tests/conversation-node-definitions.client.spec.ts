@@ -1056,3 +1056,170 @@ describe('built-in conversation node Definitions', () => {
     })
   })
 })
+
+describe('assistant-step wait origin', () => {
+  it('stamps waitOrigin at block-start reasoning, not at the later first token', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+    ])
+    const started = snapshot(value)
+    expect(started.legacy.partial).toMatchObject({
+      turn: 1,
+      step: 1,
+      blocks: [{ kind: 'reasoning', text: '' }],
+      waitOrigin: 1_700_000_000_003,
+    })
+    expect(started.order).toEqual([])
+    const running = node(started, 'assistant-step')?.data as AssistantChatData
+    expect(running.waitOrigin).toBe(1_700_000_000_003)
+    expect(running.finalNode?.timing?.firstTokenTime).toBeUndefined()
+
+    value.append(at(4, 'assistant/chunk', {
+      turn: 1,
+      step: 1,
+      chunk: { type: 'reasoning-delta', index: 0, text: 'think' },
+    }))
+    value.flush()
+    const withDelta = snapshot(value)
+    expect(withDelta.legacy.partial?.waitOrigin).toBe(1_700_000_000_003)
+    expect(withDelta.order).not.toEqual([])
+  })
+
+  it('stamps waitOrigin from a reasoning-delta when the stream has no block-start', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(5, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'reasoning-delta', index: 0, text: 'delta only' },
+      }),
+    ])
+    expect(snapshot(value).legacy.partial?.waitOrigin).toBe(1_700_000_000_005)
+  })
+
+  it('keeps TTFT silence, text tails, tool-call tails, and settled streams without a wait origin', () => {
+    const silence = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+    ])
+    expect(snapshot(silence).legacy.partial).toBeNull()
+
+    const text = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'text-delta', index: 0, text: 'hello' },
+      }),
+    ])
+    expect(snapshot(text).legacy.partial).toMatchObject({
+      blocks: [{ kind: 'text', text: 'hello' }],
+    })
+    expect(snapshot(text).legacy.partial).not.toHaveProperty('waitOrigin')
+
+    const afterReasoning = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+      at(4, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'reasoning-delta', index: 0, text: 'plan' },
+      }),
+      at(5, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'plan' } },
+      }),
+    ])
+    expect(snapshot(afterReasoning).legacy.partial).toMatchObject({
+      waitOrigin: 1_700_000_000_003,
+      blocks: [{ kind: 'reasoning', text: 'plan' }],
+    })
+
+    afterReasoning.append(at(6, 'assistant/chunk', {
+      turn: 1,
+      step: 1,
+      chunk: { type: 'block-start', index: 1, blockType: 'text' },
+    }))
+    afterReasoning.flush()
+    expect(snapshot(afterReasoning).legacy.partial?.blocks.at(-1)).toMatchObject({ kind: 'text' })
+    expect(snapshot(afterReasoning).legacy.partial?.waitOrigin).toBe(1_700_000_000_003)
+
+    const toolTail = assembler([
+      at(1, 'turn/start', { turn: 2 }),
+      at(2, 'step/start', { turn: 2, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 2,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+      at(4, 'assistant/chunk', {
+        turn: 2,
+        step: 1,
+        chunk: { type: 'tool-call-delta', index: 1, id: 'call-1', name: 'read', argumentsDelta: '{}' },
+      }),
+    ])
+    expect(snapshot(toolTail).legacy.partial?.blocks.at(-1)).toMatchObject({ kind: 'tool-call' })
+
+    const settled = assembler([
+      at(1, 'turn/start', { turn: 3 }),
+      at(2, 'step/start', { turn: 3, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 3,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+      at(4, 'assistant/message', {
+        turn: 3,
+        step: 1,
+        message: assistantMessage('done', 'settled'),
+      }, { surfaceOp: 'append' }),
+    ])
+    expect(snapshot(settled).legacy.partial).toBeNull()
+  })
+
+  it('recovers waitOrigin from a replayed window and clears it on retry', () => {
+    const replayed = assembler([
+      at(10, 'assistant/chunk', {
+        turn: 5,
+        step: 2,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+      at(11, 'assistant/chunk', {
+        turn: 5,
+        step: 2,
+        chunk: { type: 'reasoning-delta', index: 0, text: 'loaded' },
+      }),
+    ], true)
+    expect(snapshot(replayed).legacy.partial?.waitOrigin).toBe(1_700_000_000_010)
+
+    const retried = assembler([
+      at(1, 'turn/start', { turn: 6 }),
+      at(2, 'step/start', { turn: 6, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 6,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+      at(4, 'llm/retry', {
+        retryId: 'retry-wait', turn: 6, step: 1, provider: 'fake', mode: 'normal',
+        policyKey: 'fake-normal', retry: 1, maxRetries: 2, delayMs: 10,
+        failure: { code: 'TRANSPORT', message: 'temporary' },
+      }),
+    ])
+    expect(snapshot(retried).legacy.partial).toBeNull()
+  })
+})

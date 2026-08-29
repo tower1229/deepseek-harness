@@ -6,7 +6,7 @@ Web reasoning wait 圆环的归属方：向 `conversation.input.meter` 贡献一
 
 圆环是 idle chrome，直到当前会话的 open assistant partial 以 reasoning 为流式尾部：那时从正下方（6 点钟）以单一 iron-scale 颜色逆时针填充。
 
-高度为 `8% + 92% × easeOut(t)`，t = 已经过的 wait / 20s，钳在 1；easeOut 为 CSS `cubic-bezier(0, 0, 0.58, 1)`（先快后慢的减速曲线）。颜色按未重映射的线性 t 沿 `#4a4d52` → `#9a2b1f` → `#e07020` → `#ffe28a` 在 OKLCH 中插值。填充从第一次 reasoning 证据（`block-start` reasoning 或第一条 `reasoning-delta`）开始，以该证据的会话日志时间为 wait origin，而不是 `firstTokenTime`。
+高度为 `8% + 92% × easeOut(t)`，t = 已经过的 wait / 20s，钳在 1；easeOut 为 CSS `cubic-bezier(0, 0, 0.58, 1)`（先快后慢的减速曲线）。经过时间从会话日志 `streamTime`（最新 `assistant/chunk`）外推，并在 chunk 之间用客户端墙钟插值，避免 host/浏览器时钟偏差把圆环瞬间钳满。颜色按未重映射的线性 t 沿 iron scale 在 OKLCH 中插值。填充从第一次 reasoning 证据（`block-start` reasoning 或第一条 `reasoning-delta`）开始，以该证据的会话日志时间为 wait origin，而不是 `firstTokenTime`。
 
 wait 结束时高度在 240ms 内线性抽到空，颜色冻在最后的 t。当前会话上的新 wait 会打断抽空，并从该 origin 再起（最小填充、冷金属）。reduced motion 跳过抽空、直接 idle。切离仍在 wait 的会话时立刻 idle。
 

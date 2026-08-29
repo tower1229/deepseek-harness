@@ -6,7 +6,7 @@ Web reasoning-wait ring owner: contributes one meter entry to `conversation.inpu
 
 The ring is idle chrome until the current session's open assistant partial has reasoning as its streaming tail: then it fills counterclockwise from the bottom (6 o'clock) as a single iron-scale color.
 
-Height is `8% + 92% × easeOut(t)` with t = elapsed wait / 20s, clamped at 1, where easeOut is CSS `cubic-bezier(0, 0, 0.58, 1)` (fast initial rise, decelerating toward full scale). Color follows unmapped linear t across `#4a4d52` → `#9a2b1f` → `#e07020` → `#ffe28a` in OKLCH. Fill starts at the first reasoning evidence (`block-start` reasoning or the first `reasoning-delta`) using that evidence's session-log time as wait origin — not `firstTokenTime`.
+Height is `8% + 92% × easeOut(t)` with t = elapsed wait / 20s, clamped at 1, where easeOut is CSS `cubic-bezier(0, 0, 0.58, 1)` (fast initial rise, decelerating toward full scale). Elapsed wait extrapolates from session-log `streamTime` (latest `assistant/chunk`) plus the client wall clock between chunks so host/browser clock skew does not snap the ring full. Color follows unmapped linear t across `#4a4d52` → `#9a2b1f` → `#e07020` → `#ffe28a` in OKLCH. Fill starts at the first reasoning evidence (`block-start` reasoning or the first `reasoning-delta`) using that evidence's session-log time as wait origin — not `firstTokenTime`.
 
 When wait ends, height drains linearly to empty in 240ms with color frozen at the last t. A new wait on the current session preempts drain and starts from that origin (minimum fill, cool metal). Reduced motion skips drain and snaps to idle. Switching away from a waiting session idles immediately.
 

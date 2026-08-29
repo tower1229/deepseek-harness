@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { PartialAssistant } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
@@ -25,16 +26,18 @@ export function ReasoningWaitTrack({ session }: ReasoningWaitTrackProps) {
   const sessionKey = String(session.sessionId)
   const reducedMotion = prefersReducedMotion()
   const [state, setState] = useState<ReasoningWaitState>({ phase: 'idle' })
+  const streamClockAnchorRef = useRef<StreamClockAnchor | null>(null)
   const waiting = isReasoningWait(partial)
-  const now = useNow(waiting || state.phase !== 'idle')
-  const view = advanceReasoningWait(state, { partial, now, reducedMotion, sessionKey })
+  const wallNow = useNow(waiting || state.phase !== 'idle')
+  const clockNow = extrapolateSessionClock(partial, wallNow, streamClockAnchorRef, sessionKey)
+  const view = advanceReasoningWait(state, { partial, now: clockNow, reducedMotion, sessionKey })
 
   useLayoutEffect(() => {
     setState(prev => {
-      const next = advanceReasoningWait(prev, { partial, now, reducedMotion, sessionKey })
+      const next = advanceReasoningWait(prev, { partial, now: clockNow, reducedMotion, sessionKey })
       return reasoningWaitStateEqual(prev, next) ? prev : next
     })
-  }, [partial, now, reducedMotion, sessionKey])
+  }, [partial, clockNow, reducedMotion, sessionKey])
 
   return (
     <span className={css.root} data-reasoning-wait={view.phase} aria-hidden="true">
@@ -48,7 +51,7 @@ export function ReasoningWaitTrack({ session }: ReasoningWaitTrackProps) {
               cx="7"
               cy="7"
               r={RING_RADIUS}
-              stroke={view.color}
+              style={{ stroke: view.color }}
               strokeDasharray={ringStrokeDasharray(view.height)}
               transform={RING_FILL_TRANSFORM}
             />
@@ -57,6 +60,42 @@ export function ReasoningWaitTrack({ session }: ReasoningWaitTrackProps) {
       </span>
     </span>
   )
+}
+
+interface StreamClockAnchor {
+  readonly stamp: string
+  readonly streamTime: number
+  readonly seenAt: number
+}
+
+/**
+ * Session-log `streamTime` plus client extrapolation between chunks. Avoids
+ * comparing session-log `waitOrigin` directly to `Date.now()` when host and
+ * browser clocks diverge.
+ * @param partial - visible session partial, or none.
+ * @param wallNow - client wall clock in milliseconds.
+ * @returns clock comparable to session-log `waitOrigin`.
+ */
+function extrapolateSessionClock(
+  partial: PartialAssistant | null | undefined,
+  wallNow: number,
+  anchorRef: { current: StreamClockAnchor | null },
+  sessionKey: string,
+): number {
+  if (!isReasoningWait(partial)) {
+    anchorRef.current = null
+    return wallNow
+  }
+  const stamp = `${sessionKey}:${partial.waitOrigin}:${partial.streamTime ?? partial.waitOrigin}`
+  if (anchorRef.current?.stamp !== stamp) {
+    anchorRef.current = {
+      stamp,
+      streamTime: partial.streamTime ?? partial.waitOrigin,
+      seenAt: wallNow,
+    }
+  }
+  const anchor = anchorRef.current
+  return anchor.streamTime + (wallNow - anchor.seenAt)
 }
 
 function reasoningWaitStateEqual(a: ReasoningWaitState, b: ReasoningWaitState): boolean {

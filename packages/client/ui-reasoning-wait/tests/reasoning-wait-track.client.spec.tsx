@@ -124,6 +124,34 @@ describe('ReasoningWaitTrack', () => {
     expect(fillOf(container)).toBeNull()
   })
 
+  it('extrapolates from streamTime when wall clock is ahead of session log', () => {
+    const origin = 1_000
+    let wallNow = origin + 60_000
+    vi.spyOn(Date, 'now').mockImplementation(() => wallNow)
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback)
+      return frames.length
+    })
+    const partial: PartialAssistant = {
+      turn: 1,
+      step: 1,
+      blocks: [{ kind: 'reasoning', text: 'plan' }],
+      waitOrigin: origin,
+      streamTime: origin,
+    }
+    const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(partial)} />)
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
+
+    wallNow = origin + 65_000
+    rerender(<ReasoningWaitTrack {...meterProps(partial)} />)
+    act(() => {
+      frames[0]?.(0)
+    })
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).not.toBe(ringStrokeDasharray(1))
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(fillDashAt(origin, origin + 5_000))
+  })
+
   it('advances fill arc from the injected clock while wait continues', () => {
     const origin = 2_000
     let now = origin

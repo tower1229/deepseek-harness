@@ -1058,6 +1058,33 @@ describe('built-in conversation node Definitions', () => {
 })
 
 describe('assistant-step wait origin', () => {
+  it('stamps streamTime on each assistant chunk for session-clock extrapolation', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'assistant/chunk', {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'reasoning' },
+      }),
+    ])
+    const started = snapshot(value)
+    expect(started.legacy.partial).toMatchObject({
+      waitOrigin: 1_700_000_000_003,
+      streamTime: 1_700_000_000_003,
+    })
+    value.append(at(4, 'assistant/chunk', {
+      turn: 1,
+      step: 1,
+      chunk: { type: 'reasoning-delta', index: 0, text: 'think' },
+    }))
+    value.flush()
+    expect(snapshot(value).legacy.partial).toMatchObject({
+      waitOrigin: 1_700_000_000_003,
+      streamTime: 1_700_000_000_004,
+    })
+  })
+
   it('stamps waitOrigin at block-start reasoning, not at the later first token', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),

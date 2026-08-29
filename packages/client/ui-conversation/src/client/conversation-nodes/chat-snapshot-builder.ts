@@ -252,6 +252,7 @@ function runningPartial(data: AssistantChatData): PartialAssistant {
     step: data.step,
     blocks: data.blocks,
     ...data.waitOrigin === undefined ? {} : { waitOrigin: data.waitOrigin },
+    ...data.streamTime === undefined ? {} : { streamTime: data.streamTime },
   }
 }
 
@@ -326,6 +327,7 @@ function sameContribution(left: LegacyContribution | undefined, right: LegacyCon
     && left.partial?.turn === right.partial?.turn
     && left.partial?.step === right.partial?.step
     && left.partial?.waitOrigin === right.partial?.waitOrigin
+    && left.partial?.streamTime === right.partial?.streamTime
     && left.running === right.running
     && sameReferences(left.nodes, right.nodes)
 }
@@ -414,7 +416,8 @@ class LegacySliceBuilder {
     if (this.partial?.blocks !== partial?.blocks
       || this.partial?.turn !== partial?.turn
       || this.partial?.step !== partial?.step
-      || this.partial?.waitOrigin !== partial?.waitOrigin) this.partial = partial
+      || this.partial?.waitOrigin !== partial?.waitOrigin
+      || this.partial?.streamTime !== partial?.streamTime) this.partial = partial
   }
 
   private updateTimeline(timeline: ConversationTimelineSnapshot): void {
@@ -482,6 +485,7 @@ function partialContributionChanged(
     || previous?.partial?.turn !== next.partial?.turn
     || previous?.partial?.step !== next.partial?.step
     || previous?.partial?.waitOrigin !== next.partial?.waitOrigin
+    || previous?.partial?.streamTime !== next.partial?.streamTime
     || (((previous?.partial ?? null) !== null || next.partial !== null)
       && previous?.anchorSeq !== next.anchorSeq)
 }

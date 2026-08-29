@@ -16,7 +16,7 @@ web profile 在 composer trailing 行、ContextMeter 左侧提供 reasoning-wait
 
 idle 圆环始终挂载：28×28 CSS 像素 shell，与 ContextMeter 共享 14px / 2px stroke 几何，track 走主题 border，`pointer-events: none`，`aria-hidden`，位于 composer trailing 行（ContextMeter 左侧），不进 transcript 滚动容器，也不进 details。wait origin 投影落在 [`ui-conversation`](../../../../packages/client/ui-conversation/README.zh.md) 的 in-flight assistant partial 上（不新增 session event）。iron-scale 填充、ease-out 高度映射、抽空和 reduced-motion 跳过落在此插件中。
 
-填充从第一次 reasoning 证据起。高度为 `8% + 92% × easeOut(t)`，t 为线性经过 / 20s，easeOut 为 CSS `cubic-bezier(0, 0, 0.58, 1)`（先快后慢的减速曲线，时速表指针效果）。颜色按未重映射的线性 t 走 iron scale。逆时针填充通过 `rotate(90 7 7)` 与负 `stroke-dasharray` 实现。wait origin 在切换会话、刷新、重连后仍接得上。切离仍在 wait 的会话时立刻 idle，不会把该会话的填充抽到下一根条子上。未写出 `assistant/message` 的中止与其它尾部变化一样结束 wait。
+填充从第一次 reasoning 证据起。高度为 `8% + 92% × easeOut(t)`，t 为线性经过 / 20s，easeOut 为 CSS `cubic-bezier(0, 0, 0.58, 1)`（先快后慢的减速曲线，时速表指针效果）。HUD 从会话日志 `streamTime` 外推经过时间，并在 chunk 之间用客户端墙钟插值，避免 host/浏览器时钟偏差把圆环瞬间钳满。颜色按未重映射的线性 t 走 iron scale。逆时针填充通过 `rotate(90 7 7)` 与负 `stroke-dasharray` 实现。填充 stroke 走 `style.stroke`，以便 SVG 正确渲染 `color-mix(in oklch, …)` 渐变。wait origin 在切换会话、刷新、重连后仍接得上。切离仍在 wait 的会话时立刻 idle，不会把该会话的填充抽到下一根条子上。未写出 `assistant/message` 的中止与其它尾部变化一样结束 wait。
 
 术语表：[CONTEXT.md](../../../../CONTEXT.md)。填充色例外：[ADR 0001](../../../../docs/adr/0001-physical-iron-scale-fill.zh.md)。
 

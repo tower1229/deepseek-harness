@@ -32,6 +32,7 @@ interface AssistantState {
   readonly firstVisibleTime: number | undefined
   readonly firstTokenTime: number | undefined
   readonly waitOrigin: number | undefined
+  readonly lastChunkTime: number | undefined
   readonly hidden: boolean
   readonly final: ConversationMatch | undefined
   readonly usage: unknown
@@ -46,6 +47,7 @@ function initialState(turn: number, step: number): AssistantState {
     firstVisibleTime: undefined,
     firstTokenTime: undefined,
     waitOrigin: undefined,
+    lastChunkTime: undefined,
     hidden: false,
     final: undefined,
     usage: undefined,
@@ -119,7 +121,7 @@ function updateChunk(state: AssistantState, match: ConversationMatch): Assistant
       blocks[chunk.index] = toAssistantBlock(chunk.block)
       break
     case 'usage':
-      return { ...state, usage: chunk.usage }
+      return { ...state, usage: chunk.usage, lastChunkTime: match.event.time }
     default:
       return state
   }
@@ -128,6 +130,7 @@ function updateChunk(state: AssistantState, match: ConversationMatch): Assistant
   return {
     ...state,
     blocks,
+    lastChunkTime: match.event.time,
     hidden: visible ? false : state.hidden,
     ...visible && state.firstVisibleSeq === undefined
       ? { firstVisibleSeq: match.event.seq, firstVisibleTime: match.event.time }
@@ -260,6 +263,9 @@ function projectAssistant(context: ConversationNodeContext<AssistantState>): Ass
       ...settled === undefined ? {} : { finalNode: settled },
       ...settled === undefined && !streamClosed(context) && state.waitOrigin !== undefined
         ? { waitOrigin: state.waitOrigin }
+        : {},
+      ...settled === undefined && state.lastChunkTime !== undefined
+        ? { streamTime: state.lastChunkTime }
         : {},
     },
   }

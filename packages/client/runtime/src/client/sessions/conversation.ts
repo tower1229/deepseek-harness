@@ -339,6 +339,11 @@ export interface PartialAssistant {
    * This is not `firstTokenTime`.
    */
   waitOrigin?: number
+  /**
+   * Session-log time of the latest `assistant/chunk` on this open partial.
+   * Paired with client extrapolation for reasoning-wait fill animation.
+   */
+  streamTime?: number
 }
 
 /** History-open lifecycle of a Session window. */

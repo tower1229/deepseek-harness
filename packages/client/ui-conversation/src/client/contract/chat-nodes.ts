@@ -33,6 +33,11 @@ export interface AssistantChatData {
    * that finalized no message.
    */
   readonly waitOrigin?: number
+  /**
+   * Session-log time of the latest `assistant/chunk` on this running partial.
+   * Extrapolated with the client wall clock between chunks for smooth HUD fill.
+   */
+  readonly streamTime?: number
 }
 
 /** Settled or interrupted Assistant payload with its durable presentation node. */

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
-import type { PartialAssistant } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ConversationSnapshot, PartialAssistant } from '@deepseek-ai/dsh-client-runtime/client'
 import { ReasoningWaitTrack, type ReasoningWaitTrackProps } from '../src/client/ReasoningWaitTrack.tsx'
+import { ringStrokeDasharray } from '../src/client/ring-geometry.ts'
 
 afterEach(() => {
   cleanup()
@@ -15,26 +16,26 @@ beforeEach(() => {
   vi.stubGlobal('cancelAnimationFrame', () => {})
 })
 
-function overlayProps(
+function meterProps(
   partial?: PartialAssistant | null,
-  sessionId?: string,
+  sessionId = 's1',
 ): ReasoningWaitTrackProps {
   return {
-    sessionId: sessionId ?? (partial === undefined ? undefined : 's1'),
-    useSession: (select: (session: { partial: PartialAssistant | null }) => unknown) => {
-      if (partial === undefined) return undefined
-      return select({ partial })
-    },
+    session: {
+      sessionId,
+      partial: partial === undefined ? null : partial,
+    } as ConversationSnapshot,
+    input: {} as ReasoningWaitTrackProps['input'],
   } as ReasoningWaitTrackProps
 }
 
-function fillOf(container: HTMLElement): HTMLElement | null {
+function fillOf(container: HTMLElement): SVGCircleElement | null {
   return container.querySelector('[data-reasoning-wait-fill]')
 }
 
 describe('ReasoningWaitTrack', () => {
-  it('renders an idle trough hidden from the accessibility tree, with no fill', () => {
-    const { container } = render(<ReasoningWaitTrack {...overlayProps()} />)
+  it('renders an idle ring hidden from the accessibility tree, with no fill arc', () => {
+    const { container } = render(<ReasoningWaitTrack {...meterProps()} />)
     const track = container.querySelector('[data-reasoning-wait="idle"]')
     expect(track).not.toBeNull()
     expect(track?.getAttribute('aria-hidden')).toBe('true')
@@ -43,15 +44,15 @@ describe('ReasoningWaitTrack', () => {
   })
 
   it('stays idle for a current session with no reasoning-wait tail', () => {
-    const { container } = render(<ReasoningWaitTrack {...overlayProps(null)} />)
+    const { container } = render(<ReasoningWaitTrack {...meterProps(null)} />)
     expect(container.querySelector('[data-reasoning-wait="idle"]')).not.toBeNull()
     expect(fillOf(container)).toBeNull()
   })
 
-  it('fills from the bottom at minimum height and cool metal when wait starts', () => {
+  it('fills clockwise at minimum arc and cool metal when wait starts', () => {
     const origin = 5_000
     vi.spyOn(Date, 'now').mockReturnValue(origin)
-    const { container } = render(<ReasoningWaitTrack {...overlayProps({
+    const { container } = render(<ReasoningWaitTrack {...meterProps({
       turn: 1,
       step: 1,
       blocks: [{ kind: 'reasoning', text: '' }],
@@ -60,11 +61,11 @@ describe('ReasoningWaitTrack', () => {
     const fill = fillOf(container)
     expect(container.querySelector('[data-reasoning-wait="thermometer"]')).not.toBeNull()
     expect(fill).not.toBeNull()
-    expect(fill?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('8%')
-    expect(fill?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#4a4d52')
+    expect(fill?.getAttribute('stroke')).toBe('#4a4d52')
+    expect(fill?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
   })
 
-  it('drains height with frozen color when reasoning leaves the tail, then idles', () => {
+  it('drains arc with frozen color when reasoning leaves the tail, then idles', () => {
     const origin = 1_000
     let now = origin + 80_000
     vi.spyOn(Date, 'now').mockImplementation(() => now)
@@ -84,22 +85,22 @@ describe('ReasoningWaitTrack', () => {
       ...waiting,
       blocks: [...waiting.blocks, { kind: 'text' as const, text: 'done' }],
     }
-    const { container, rerender } = render(<ReasoningWaitTrack {...overlayProps(waiting)} />)
+    const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
     const fill = fillOf(container)
-    expect(fill?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('100%')
-    expect(fill?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#ffe28a')
+    expect(fill?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(1))
+    expect(fill?.getAttribute('stroke')).toBe('#ffe28a')
 
-    rerender(<ReasoningWaitTrack {...overlayProps(ended)} />)
+    rerender(<ReasoningWaitTrack {...meterProps(ended)} />)
     expect(container.querySelector('[data-reasoning-wait="drain"]')).not.toBeNull()
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('100%')
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#ffe28a')
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(1))
+    expect(fillOf(container)?.getAttribute('stroke')).toBe('#ffe28a')
 
     now = origin + 80_000 + 120
     act(() => {
       frame?.(0)
     })
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('50%')
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#ffe28a')
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.5))
+    expect(fillOf(container)?.getAttribute('stroke')).toBe('#ffe28a')
 
     now = origin + 80_000 + 240
     act(() => {
@@ -109,7 +110,7 @@ describe('ReasoningWaitTrack', () => {
     expect(fillOf(container)).toBeNull()
   })
 
-  it('advances fill height from the injected clock while wait continues', () => {
+  it('advances fill arc from the injected clock while wait continues', () => {
     const origin = 2_000
     let now = origin
     vi.spyOn(Date, 'now').mockImplementation(() => now)
@@ -119,43 +120,43 @@ describe('ReasoningWaitTrack', () => {
       return frames.length
     })
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
-    const { container } = render(<ReasoningWaitTrack {...overlayProps({
+    const { container } = render(<ReasoningWaitTrack {...meterProps({
       turn: 1,
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
     })} />)
-    now = origin + 18_500
+    now = origin + 10_000
     act(() => {
       frames[0]?.(0)
     })
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('54%')
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
   })
 
   it('idles when switching to a session that is not waiting, then resumes from wait origin', () => {
     const origin = 10_000
-    vi.spyOn(Date, 'now').mockReturnValue(origin + 18_500)
+    vi.spyOn(Date, 'now').mockReturnValue(origin + 10_000)
     const waiting: PartialAssistant = {
       turn: 1,
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
     }
-    const { container, rerender } = render(<ReasoningWaitTrack {...overlayProps(waiting)} />)
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('54%')
+    const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
 
-    rerender(<ReasoningWaitTrack {...overlayProps(null, 's2')} />)
+    rerender(<ReasoningWaitTrack {...meterProps(null, 's2')} />)
     expect(container.querySelector('[data-reasoning-wait="idle"]')).not.toBeNull()
     expect(fillOf(container)).toBeNull()
 
-    rerender(<ReasoningWaitTrack {...overlayProps(waiting)} />)
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('54%')
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-color')).not.toBe('#4a4d52')
+    rerender(<ReasoningWaitTrack {...meterProps(waiting)} />)
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
+    expect(fillOf(container)?.getAttribute('stroke')).not.toBe('#4a4d52')
   })
 
-  it('preempts drain when a new wait starts, from minimum fill and cool metal', () => {
+  it('preempts drain when a new wait starts, from minimum arc and cool metal', () => {
     const origin = 1_000
-    let now = origin + 18_500
+    let now = origin + 10_000
     vi.spyOn(Date, 'now').mockImplementation(() => now)
     const waiting: PartialAssistant = {
       turn: 1,
@@ -163,8 +164,8 @@ describe('ReasoningWaitTrack', () => {
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
     }
-    const { container, rerender } = render(<ReasoningWaitTrack {...overlayProps(waiting)} />)
-    rerender(<ReasoningWaitTrack {...overlayProps({
+    const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
+    rerender(<ReasoningWaitTrack {...meterProps({
       ...waiting,
       blocks: [...waiting.blocks, { kind: 'text', text: 'done' }],
     })} />)
@@ -172,30 +173,30 @@ describe('ReasoningWaitTrack', () => {
 
     const nextOrigin = origin + 20_000
     now = nextOrigin
-    rerender(<ReasoningWaitTrack {...overlayProps({
+    rerender(<ReasoningWaitTrack {...meterProps({
       turn: 1,
       step: 2,
       blocks: [{ kind: 'reasoning', text: 'again' }],
       waitOrigin: nextOrigin,
     })} />)
     expect(container.querySelector('[data-reasoning-wait="thermometer"]')).not.toBeNull()
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('8%')
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-color')).toBe('#4a4d52')
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08))
+    expect(fillOf(container)?.getAttribute('stroke')).toBe('#4a4d52')
   })
 
   it('snaps to idle under reduced motion when wait ends, without draining', () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true }) as MediaQueryList))
     const origin = 1_000
-    vi.spyOn(Date, 'now').mockReturnValue(origin + 18_500)
+    vi.spyOn(Date, 'now').mockReturnValue(origin + 10_000)
     const waiting: PartialAssistant = {
       turn: 1,
       step: 1,
       blocks: [{ kind: 'reasoning', text: 'plan' }],
       waitOrigin: origin,
     }
-    const { container, rerender } = render(<ReasoningWaitTrack {...overlayProps(waiting)} />)
-    expect(fillOf(container)?.style.getPropertyValue('--dsh-reasoning-wait-height')).toBe('54%')
-    rerender(<ReasoningWaitTrack {...overlayProps({
+    const { container, rerender } = render(<ReasoningWaitTrack {...meterProps(waiting)} />)
+    expect(fillOf(container)?.getAttribute('stroke-dasharray')).toBe(ringStrokeDasharray(0.08 + 0.92 * 0.5))
+    rerender(<ReasoningWaitTrack {...meterProps({
       ...waiting,
       blocks: [...waiting.blocks, { kind: 'text', text: 'done' }],
     })} />)

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
@@ -6,21 +6,22 @@ import {
   isReasoningWait,
   type ReasoningWaitState,
 } from './thermometer.ts'
+import { RING_RADIUS, ringStrokeDasharray } from './ring-geometry.ts'
 import css from './ReasoningWaitTrack.module.css'
 
-/** Full props for the conversation-column reasoning-wait track. */
-export type ReasoningWaitTrackProps = PropsRuntime<'conversation.overlay'>
+/** Full props for the composer reasoning-wait ring. */
+export type ReasoningWaitTrackProps = PropsRuntime<'conversation.input.meter'>
 
 /**
- * Conversation-column HUD track. Idle trough, thermometer fill while the
- * current session's open partial has reasoning as its streaming tail, or a
- * 240ms height drain with frozen color when that wait ends. A new wait
+ * Composer trailing reasoning-wait ring. Idle track, clockwise iron-scale fill
+ * while the current session's open partial has reasoning as its streaming tail,
+ * or a 240ms arc drain with frozen color when that wait ends. A new wait
  * preempts drain. Reduced motion snaps wait end to idle. Decorative: hidden
  * from the accessibility tree and transparent to pointer events.
  */
-export function ReasoningWaitTrack({ useSession, sessionId }: ReasoningWaitTrackProps) {
-  const partial = useSession(session => session.partial)
-  const sessionKey = sessionId ?? ''
+export function ReasoningWaitTrack({ session }: ReasoningWaitTrackProps) {
+  const partial = session.partial
+  const sessionKey = String(session.sessionId)
   const reducedMotion = prefersReducedMotion()
   const [state, setState] = useState<ReasoningWaitState>({ phase: 'idle' })
   const waiting = isReasoningWait(partial)
@@ -34,20 +35,26 @@ export function ReasoningWaitTrack({ useSession, sessionId }: ReasoningWaitTrack
     })
   }, [partial, now, reducedMotion, sessionKey])
 
-  if (view.phase === 'idle') {
-    return <div className={css.track} data-reasoning-wait="idle" aria-hidden="true" />
-  }
   return (
-    <div className={css.track} data-reasoning-wait={view.phase} aria-hidden="true">
-      <div
-        className={css.fill}
-        data-reasoning-wait-fill=""
-        style={{
-          '--dsh-reasoning-wait-height': `${view.height * 100}%`,
-          '--dsh-reasoning-wait-color': view.color,
-        } as CSSProperties}
-      />
-    </div>
+    <span className={css.root} data-reasoning-wait={view.phase} aria-hidden="true">
+      <span className={css.shell}>
+        <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden>
+          <circle className={css.track} cx="7" cy="7" r={RING_RADIUS} />
+          {view.phase !== 'idle' && (
+            <circle
+              className={css.fill}
+              data-reasoning-wait-fill=""
+              cx="7"
+              cy="7"
+              r={RING_RADIUS}
+              stroke={view.color}
+              strokeDasharray={ringStrokeDasharray(view.height)}
+              transform="rotate(-90 7 7)"
+            />
+          )}
+        </svg>
+      </span>
+    </span>
   )
 }
 

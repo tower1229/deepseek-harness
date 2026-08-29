@@ -1,6 +1,6 @@
 import type { PartialAssistant } from '@deepseek-ai/dsh-client-runtime/client'
 
-const FULL_SCALE_MS = 37_000
+const FULL_SCALE_MS = 20_000
 const MIN_FILL = 0.08
 const DRAIN_MS = 240
 

@@ -1,5 +1,5 @@
 /**
- * ui-reasoning-wait plugin halves: the browser entry's overlay-slot
+ * ui-reasoning-wait plugin halves: the browser entry's meter-slot
  * registration against the real SlotRegistry (with fiber teardown proving
  * removal — HMR safety), the inert node entry, and the invariant companion's
  * ownership reservation. Profile patches pin web-only composition.
@@ -18,21 +18,21 @@ import * as ReasoningWaitInvariant from '../src/invariant.ts'
 const PKG = '@deepseek-ai/dsh-client-ui-reasoning-wait'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
-/** Slot ledger reader: entry ids currently registered in the column HUD list. */
-function overlayEntryIds(ctx: Context): (string | undefined)[] {
+/** Slot ledger reader: entry ids currently registered in the composer meter list. */
+function meterEntryIds(ctx: Context): (string | undefined)[] {
   return ctx.slots
-    .entries('conversation.overlay')
+    .entries('conversation.input.meter')
     .map(entry => entry.options.id)
 }
 
-/** Boot the browser half over a real slot tree that declares the HUD list. */
+/** Boot the browser half over a real slot tree that declares the meter list. */
 async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   ctx.slots.register({
     name: 'root',
     children: {
-      'conversation.overlay': { kind: 'list', scope: 'session-maybe' },
+      'conversation.input.meter': { kind: 'list', scope: 'session' },
     },
   } as never, () => null)
   const fiber = ctx.plugin({ inject: [...inject], apply })
@@ -45,11 +45,11 @@ describe('ui-reasoning-wait browser half', () => {
     expect(inject).toEqual(['slots'])
   })
 
-  it('registers the overlay entry, and fiber teardown removes it (HMR safety)', async () => {
+  it('registers the meter entry, and fiber teardown removes it (HMR safety)', async () => {
     const { ctx, fiber } = await bench()
-    expect(overlayEntryIds(ctx)).toContain('reasoning-wait')
+    expect(meterEntryIds(ctx)).toContain('reasoning-wait')
     await fiber.dispose()
-    expect(overlayEntryIds(ctx)).not.toContain('reasoning-wait')
+    expect(meterEntryIds(ctx)).not.toContain('reasoning-wait')
   })
 })
 
@@ -87,14 +87,13 @@ describe('profile composition', () => {
   })
 })
 
-describe('idle trough chrome', () => {
-  it('declares a 4×96 theme-chrome trough that ignores pointer events', () => {
+describe('idle ring chrome', () => {
+  it('declares a ContextMeter-sized decorative shell that ignores pointer events', () => {
     const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/client/ReasoningWaitTrack.module.css'), 'utf8')
-    expect(source).toMatch(/width:\s*4px/)
-    expect(source).toMatch(/height:\s*96px/)
+    expect(source).toMatch(/width:\s*28px/)
+    expect(source).toMatch(/height:\s*28px/)
     expect(source).toContain('pointer-events: none')
-    expect(source).toContain('var(--dsw-alias-bg-layer-1)')
-    expect(source).toContain('var(--dsw-alias-border-l2)')
+    expect(source).toContain('var(--dsw-alias-border-l3)')
     expect(source).not.toMatch(/state-warn|hover-danger/)
   })
 })

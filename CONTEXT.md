@@ -9,7 +9,7 @@ The wall-clock while an assistant message's reasoning content is the in-flight s
 _Avoid_: 思考, thinking, request wait, step, turn
 
 **Full scale**:
-The reasoning-wait duration at which the indicator is completely filled and the color is at its last stop. Elapsed time past full scale stays clamped there until the wait ends. The duration is 37 seconds. It is a design constant of this chrome, not a deployment Config field.
+The reasoning-wait duration at which the indicator is completely filled and the color is at its last stop. Elapsed time past full scale stays clamped there until the wait ends. The duration is 20 seconds. It is a design constant of this chrome, not a deployment Config field.
 _Avoid_: timeout, limit, overtime
 
 **Idle track**:

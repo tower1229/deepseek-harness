@@ -1,13 +1,15 @@
-# Idle reasoning-wait track on the assembled web hero
+# Idle reasoning-wait ring beside the composer context meter
 
 - phase: idle
 - fill present: false
-- size: 4×96
+- shell size: 28×28
+- svg size: 14×14
 - pointer-events: none
 - aria-hidden: true
-- in conversation overlay: true
+- in composer seat: true
+- in conversation overlay: false
 - in transcript scroller: false
 - in details column: false
-- column-corner inset: 16×16
-- trough uses theme layer/border aliases: true
-- trough uses warning/danger: false
+- left of context meter: true
+- track uses theme border alias: true
+- shell uses warning/danger: false

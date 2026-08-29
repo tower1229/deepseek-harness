@@ -1,20 +1,28 @@
-.track {
-  box-sizing: border-box;
+/* Reasoning-wait ring beside the composer ContextMeter: same 28×28 shell and
+   14px / 2px-stroke geometry; decorative only (no hover, no pointer events). */
+
+.root {
   position: relative;
-  overflow: hidden;
-  width: 4px;
-  height: 96px;
+  display: inline-flex;
+}
+
+.shell {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
   pointer-events: none;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 2px;
-  background: var(--dsw-alias-bg-layer-1);
+}
+
+.track {
+  fill: none;
+  stroke: var(--dsw-alias-border-l3);
+  stroke-width: 2;
 }
 
 .fill {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: var(--dsh-reasoning-wait-height);
-  background: var(--dsh-reasoning-wait-color);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
 }

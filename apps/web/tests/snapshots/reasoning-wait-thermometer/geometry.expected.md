@@ -1,17 +1,16 @@
-# Reasoning-wait thermometer on the assembled web conversation
+# Reasoning-wait thermometer ring beside the composer context meter
 
 - phase: thermometer
 - fill present: true
-- fill height positive: true
-- fill matches trough chrome: false
+- fill arc positive: true
 - fill uses cool-metal start (#4a4d52): true
-- size: 4×96
+- shell size: 28×28
 - pointer-events: none
 - aria-hidden: true
-- in conversation overlay: true
+- in composer seat: true
+- in conversation overlay: false
 - in transcript scroller: false
 - in details column: false
-- column-right inset: 16
-- sits above composer: true
-- trough uses theme layer/border aliases: true
-- trough uses warning/danger: false
+- left of context meter: true
+- track uses theme border alias: true
+- shell uses warning/danger: false

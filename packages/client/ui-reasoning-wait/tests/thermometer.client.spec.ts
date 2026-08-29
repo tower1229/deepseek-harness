@@ -7,7 +7,7 @@ import {
 } from '../src/client/thermometer.ts'
 
 const ORIGIN = 1_000
-const FULL_SCALE_MS = 37_000
+const FULL_SCALE_MS = 20_000
 const DRAIN_MS = 240
 const SESSION = 's1'
 

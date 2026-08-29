@@ -39,3 +39,9 @@ apps/web/dist/
 worktrees/
 .agents/worktrees/
 .typert-*/
+.tmp-npm-cache/
+.tmp-chrome/
+.tmp-chrome2/
+.tmp-chrome3/
+.tmp-edge/
+.tmp-check-reasoning-wait.mjs

@@ -4,6 +4,7 @@
    a 2px active bar. */
 
 .root {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -367,4 +368,24 @@
    mounted but invisible so no wrong layout flashes before the phase lands. */
 .root[data-phase='settling'] .composerSeat {
   visibility: hidden;
+}
+
+/* Column-fixed HUD: outside the transcript scroller. On hero the composer is
+   centered, so the host sits in the column corner (16px inset). In the active
+   phase the composer is docked; --dsh-composer-height then lifts the host
+   above send. pointer-events none so a thin HUD does not steal transcript
+   clicks; an entry that needs clicks opts back in on its own root. */
+.hud {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.root[data-phase='active'] .hud {
+  bottom: calc(var(--dsh-composer-height, 152px) + 16px);
 }

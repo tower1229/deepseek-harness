@@ -269,6 +269,20 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * a model here.
      */
     'conversation.input.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+    /**
+     * Column-fixed HUD at the conversation column's bottom-right. Additive
+     * list, session-maybe: the seat stays mounted with no current session
+     * (hero) and while a session is visible. On hero the composer is centered,
+     * so the host sits in the column corner; in the active phase it sits above
+     * the docked composer via `--dsh-composer-height`. Do not hang column HUD
+     * on `shell.overlay` (viewport-sized, no composer-height) or
+     * `conversation.input.overlay` (composer chrome). The host is outside the
+     * transcript scroller and outside details, so entries do not scroll with
+     * messages. The layer is `pointer-events: none`; an entry that needs
+     * clicks opts back in on its own root. The owner passes nothing: entries
+     * read the session-maybe kit.
+     */
+    'conversation.overlay': { kind: 'list'; scope: 'session-maybe'; owner: ConversationOverlayOwnerProps }
   }
 
   /**
@@ -314,6 +328,9 @@ export interface ConversationSessionOwnerProps {
 
 /** Header actions derive their state from the standard session/global kit. */
 export interface ConversationHeaderActionOwnerProps {}
+
+/** Column HUD entries derive their state from the session-maybe standard kit. */
+export interface ConversationOverlayOwnerProps {}
 
 /** Plain breadcrumb data handed to the optional lineage renderer. */
 export interface ConversationHeaderLineageOwnerProps {
@@ -640,6 +657,7 @@ export type ConversationSlotProps =
   PropsRuntime<'conversation'> & PropsRenderSlots<
     | 'conversation.session' | 'conversation.session.header'
     | 'conversation.composer' | 'conversation.composer.bar'
+    | 'conversation.overlay'
     | 'conversation.input.overlay'
     | 'conversation.input.dock' | 'conversation.composer.dock'
     | 'conversation.input.left' | 'conversation.input.right'

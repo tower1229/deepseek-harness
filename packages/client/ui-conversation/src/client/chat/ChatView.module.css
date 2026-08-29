@@ -169,7 +169,8 @@
 
 :global([data-conversation-scroll]) .toBottomSlot {
   /* Clears the sticky composer stack (docks + input card + stats): the live
-     height rides --dsh-composer-height (ConversationRoot's seat observer) so
+     height rides --dsh-composer-height (published on the conversation column
+     root by ConversationRoot's seat observer, inherited here) so
      the control follows a growing textarea; the fallback covers the first
      paint before the observer fires. */
   bottom: calc(var(--dsh-composer-height, 152px) + 16px);

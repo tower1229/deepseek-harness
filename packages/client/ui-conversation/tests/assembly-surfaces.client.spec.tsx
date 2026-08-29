@@ -89,6 +89,9 @@ describe('resident composer', () => {
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
     await runtime.mount({ inject: [...inject], apply })
     runtime.slots.register({ name: 'conversation.hero.workspace' }, WorkspaceProbe)
+    runtime.slots.register({ name: 'conversation.overlay', id: 'probe' }, function OverlayProbe() {
+      return <div data-testid="overlay-probe" />
+    })
     const view = runtime.renderRoot()
     const textarea = view.container.querySelector('textarea')
     expect(textarea).not.toBeNull()
@@ -103,6 +106,11 @@ describe('resident composer', () => {
     fireEvent.keyDown(textarea!, { key: 'Enter' })
     expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
     expect(view.getByRole('button', { name: '选择工作区' })).toBeTruthy()
+    const overlayProbe = view.getByTestId('overlay-probe')
+    const hud = view.container.querySelector('[data-conversation-overlay]')
+    const scroller = view.container.querySelector('[data-conversation-scroll]')
+    expect(hud?.contains(overlayProbe)).toBe(true)
+    expect(scroller?.contains(overlayProbe)).toBe(false)
     await runtime.dispose()
   })
 

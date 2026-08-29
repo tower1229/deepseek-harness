@@ -384,6 +384,12 @@ describe('ConversationRoot resident composer', () => {
     expect(b.slotCalls).toContain('conversation.session.header.lineage')
     expect(b.slotCalls).toContain('conversation.session.header.actions')
     expect(b.slotCalls).toContain('conversation.session.header.utilities')
+    const overlay = b.view.getByTestId('view-conversation.overlay')
+    const hud = b.view.container.querySelector('[data-conversation-overlay]')
+    expect(hud).not.toBeNull()
+    expect(hud?.contains(overlay)).toBe(true)
+    expect(host?.contains(overlay)).toBe(false)
+    expect(seat?.contains(overlay)).toBe(false)
   })
 
   it('sticky composer seat wraps the whole overlay chain, not only the fallback stack', () => {
@@ -412,6 +418,9 @@ describe('ConversationRoot resident composer', () => {
     expect(b.view.getByText('探索未至之境')).toBeTruthy()
     expect(b.view.getByText('预览版')).toBeTruthy()
     expect(b.view.queryByTestId('view-chat')).toBeNull()
+    const overlay = b.view.getByTestId('view-conversation.overlay')
+    expect(host?.contains(overlay)).toBe(false)
+    expect(b.view.container.querySelector('[data-conversation-overlay]')?.contains(overlay)).toBe(true)
     // The same machine-backed textarea is live in the hero, and the
     // persistence mirror stays bound (ConversationSession mounts chrome-hidden
     // for blank sessions): hero typing reaches the chat store.

@@ -41,6 +41,11 @@ export type ReplayEntry =
     kind: 'hang'
     /** Optional marker written after the prefix chunks are consumed and before the stream waits for cancellation. */
     readyFile?: string
+    /**
+     * Prefix yielded before the stall. Absent uses the historical two-chunk
+     * text/`partial` prefix so existing cancel sidecars keep their presentation.
+     */
+    chunks?: StreamChunk[]
   }
 
 /** One model exposed by a replay-only provider catalog. */
@@ -466,12 +471,19 @@ function readReplayEntry(value: unknown, file: string, location: string): Replay
     }
     case 'hang': {
       const readyFile = value['readyFile']
-      const keys = readyFile === undefined ? ['kind'] : ['kind', 'readyFile']
+      const chunks = value['chunks']
+      const keys = ['kind']
+      if (readyFile !== undefined) keys.push('readyFile')
+      if (chunks !== undefined) keys.push('chunks')
       if (!hasExactKeys(value, keys)) invalidOverride(file, location, 'has invalid hang-entry fields')
       if (readyFile !== undefined && (typeof readyFile !== 'string' || readyFile.length === 0)) {
         invalidOverride(file, location, 'readyFile must be a non-empty string')
       }
-      return { kind: 'hang', ...(readyFile === undefined ? {} : { readyFile }) }
+      return {
+        kind: 'hang',
+        ...(readyFile === undefined ? {} : { readyFile }),
+        ...(chunks === undefined ? {} : { chunks: readChunks(chunks, file, `${location}.chunks`) }),
+      }
     }
     default:
       return invalidOverride(file, location, `has unknown kind ${JSON.stringify(value['kind'])}`)
@@ -698,11 +710,18 @@ async function* replayEntry(entry: ReplayEntry, signal: AbortSignal | undefined,
         yield chunk
       }
       throw new LlmError(entry.message, entry.code)
-    case 'hang':
-      // Replay a stream that stalls until cancelled (mirrors MockAdapter): one
-      // chunk, then wait for abort and surface it as the consumer expects.
-      yield { type: 'block-start', index: 0, blockType: 'text' }
-      yield { type: 'text-delta', index: 0, text: 'partial' }
+    case 'hang': {
+      // Replay a stream that stalls until cancelled. Absent `chunks` keeps the
+      // historical text/`partial` prefix so existing cancel sidecars stay put.
+      if (entry.chunks !== undefined) {
+        for (const chunk of entry.chunks) {
+          if (signal?.aborted) throw new Error('aborted')
+          yield chunk
+        }
+      } else {
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'text-delta', index: 0, text: 'partial' }
+      }
       if (entry.readyFile !== undefined) writeFileSync(entry.readyFile, '')
       await new Promise<void>((_resolve, reject) => {
         if (signal?.aborted) { reject(new Error('aborted')); return }
@@ -710,6 +729,7 @@ async function* replayEntry(entry: ReplayEntry, signal: AbortSignal | undefined,
       })
       /* v8 ignore next -- unreachable: the hang promise only ever rejects (on abort), never resolves; control never reaches here */
       return
+    }
     /* v8 ignore next -- sidecar entries are validated before they reach the closed local union. */
     default:
       return assertNever(entry, 'llm-replay replay entry')

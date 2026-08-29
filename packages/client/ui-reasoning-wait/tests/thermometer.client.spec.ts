@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { PartialAssistant } from '@deepseek-ai/dsh-client-runtime/client'
-import { reasoningWaitAppearance } from '../src/client/thermometer.ts'
+import { advanceReasoningWait, reasoningWaitAppearance } from '../src/client/thermometer.ts'
 
 const ORIGIN = 1_000
 const FULL_SCALE_MS = 37_000
+const DRAIN_MS = 240
+const SESSION = 's1'
 
 function waiting(overrides: Partial<PartialAssistant> = {}): PartialAssistant {
   return {
@@ -103,5 +105,120 @@ describe('reasoningWaitAppearance', () => {
       t: 10_000 / FULL_SCALE_MS,
       height: 0.08 + 0.92 * (10_000 / FULL_SCALE_MS),
     })
+  })
+})
+
+describe('advanceReasoningWait', () => {
+  const input = {
+    partial: waiting(),
+    now: ORIGIN + FULL_SCALE_MS / 2,
+    reducedMotion: false,
+    sessionKey: SESSION,
+  }
+
+  it('drains height over 240ms with color frozen at the last t, then idles', () => {
+    const hot = advanceReasoningWait({ phase: 'idle' }, input)
+    expect(hot).toMatchObject({
+      phase: 'thermometer',
+      sessionKey: SESSION,
+      t: 0.5,
+      height: 0.08 + 0.92 * 0.5,
+    })
+    if (hot.phase !== 'thermometer') throw new Error('expected thermometer')
+    const frozen = hot.color
+    expect(frozen).toMatch(/^color-mix\(in oklch, #9a2b1f, #e07020 /)
+
+    const ended = { ...waiting(), blocks: [...waiting().blocks, { kind: 'text' as const, text: 'done' }] }
+    const start = advanceReasoningWait(hot, {
+      ...input,
+      partial: ended,
+      now: input.now,
+    })
+    expect(start).toEqual({
+      phase: 'drain',
+      sessionKey: SESSION,
+      height: hot.height,
+      color: frozen,
+      fromHeight: hot.height,
+      startedAt: input.now,
+    })
+
+    const mid = advanceReasoningWait(start, {
+      ...input,
+      partial: ended,
+      now: input.now + DRAIN_MS / 2,
+    })
+    expect(mid).toEqual({
+      phase: 'drain',
+      sessionKey: SESSION,
+      height: hot.height * 0.5,
+      color: frozen,
+      fromHeight: hot.height,
+      startedAt: input.now,
+    })
+
+    expect(advanceReasoningWait(mid, {
+      ...input,
+      partial: ended,
+      now: input.now + DRAIN_MS,
+    })).toEqual({ phase: 'idle' })
+  })
+
+  it('preempts drain when a new wait starts, from minimum fill and cool metal', () => {
+    const draining = advanceReasoningWait(
+      {
+        phase: 'drain',
+        sessionKey: SESSION,
+        height: 0.5,
+        color: '#ffe28a',
+        fromHeight: 1,
+        startedAt: ORIGIN,
+      },
+      {
+        partial: waiting({ waitOrigin: ORIGIN + 10_000 }),
+        now: ORIGIN + 10_000,
+        reducedMotion: false,
+        sessionKey: SESSION,
+      },
+    )
+    expect(draining).toEqual({
+      phase: 'thermometer',
+      sessionKey: SESSION,
+      t: 0,
+      height: 0.08,
+      color: '#4a4d52',
+    })
+  })
+
+  it('skips drain under reduced motion, including a drain already in progress', () => {
+    const hot = advanceReasoningWait({ phase: 'idle' }, input)
+    const ended = { ...waiting(), blocks: [...waiting().blocks, { kind: 'text' as const, text: 'done' }] }
+    expect(advanceReasoningWait(hot, {
+      ...input,
+      partial: ended,
+      reducedMotion: true,
+    })).toEqual({ phase: 'idle' })
+    expect(advanceReasoningWait({
+      phase: 'drain',
+      sessionKey: SESSION,
+      height: 0.5,
+      color: '#ffe28a',
+      fromHeight: 1,
+      startedAt: ORIGIN,
+    }, {
+      ...input,
+      partial: ended,
+      reducedMotion: true,
+    })).toEqual({ phase: 'idle' })
+  })
+
+  it('snaps to idle when switching away from a waiting session instead of draining that fill', () => {
+    const hot = advanceReasoningWait({ phase: 'idle' }, input)
+    expect(advanceReasoningWait(hot, {
+      partial: null,
+      now: input.now,
+      reducedMotion: false,
+      sessionKey: 's2',
+    })).toEqual({ phase: 'idle' })
   })
 })

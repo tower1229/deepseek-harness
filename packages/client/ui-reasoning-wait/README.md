@@ -8,11 +8,13 @@ The trough is idle chrome until the current session's open assistant partial has
 
 Height is `8% + 92% × t` with t = elapsed wait / 37s, clamped at 1; color follows unmapped t across `#4a4d52` → `#9a2b1f` → `#e07020` → `#ffe28a` in OKLCH. Fill starts at the first reasoning evidence (`block-start` reasoning or the first `reasoning-delta`) using that evidence's session-log time as wait origin — not `firstTokenTime`.
 
-TTFT silence, text or tool-call tails, tool execution, thinking-off requests, and other sessions leave the track idle. Switching back to a session still in wait resumes from that origin. When wait ends, this slice returns to idle immediately (drain is deferred).
+When wait ends, height drains to empty in 240ms with color frozen at the last t. A new wait on the current session preempts drain and starts a thermometer from that origin (minimum fill, cool metal). Reduced motion skips drain and snaps to idle. Switching away from a waiting session idles immediately.
 
-The trough is `aria-hidden` and `pointer-events: none`. Trough and edge use theme aliases (`--dsw-alias-bg-layer-1`, `--dsw-alias-border-l2`); fill is a component-local custom property and is not mapped onto warning or danger tokens. The plugin ships in the web-app bundle by default and is absent from headless, ACP, and CLI; unload it by removing or disabling the plugin row in a profile patch. There is no Settings toggle and no Config for geometry, 37s, minimum fill, or colors.
+TTFT silence, text or tool-call tails, tool execution, thinking-off requests, and other sessions leave the track idle. Switching back to a session still in wait resumes from that origin.
 
-The [reasoning-wait thermometer proposal](../../../.agents/notes/proposed/feature/2026-08-29-reasoning-wait-thermometer.md) records placement, iron-scale fill, and drain. [CONTEXT.md](../../../CONTEXT.md) is the glossary; [ADR 0001](../../../docs/adr/0001-physical-iron-scale-fill.md) is the fill-token exception.
+The trough is `aria-hidden` and `pointer-events: none`. Trough and edge use theme aliases (`--dsw-alias-bg-layer-1`, `--dsw-alias-border-l2`); fill is a component-local custom property and is not mapped onto warning or danger tokens. The plugin ships in the web-app bundle by default and is absent from headless, ACP, and CLI; unload it by removing or disabling the plugin row in a profile patch. There is no Settings toggle and no Config for geometry, 37s, drain, minimum fill, or colors.
+
+The [reasoning-wait thermometer decision](../../../.agents/notes/implemented/feature/2026-08-29-reasoning-wait-thermometer.md) records placement, iron-scale fill, and drain. [CONTEXT.md](../../../CONTEXT.md) is the glossary; [ADR 0001](../../../docs/adr/0001-physical-iron-scale-fill.md) is the fill-token exception.
 
 ## Model Experience
 
@@ -24,5 +26,4 @@ None; the package never assembles or sends provider requests.
 
 ## Known Limitations and Deferred Work
 
-- **Drain is immediate** — when wait ends the fill snaps to empty; 240ms drain with frozen color, preemption by a new wait, and reduced-motion snap belong to a later slice.
-- **In-flight wait is not in the assembled web snapshot yet** — idle chrome is pinned by `apps/web/tests/reasoning-wait-idle-track.e2e.ts`; reasoning-wait fill and drain still need a later replay fixture.
+- **Grill skipped a runnable UI prototype** — 4×96 and the four hex stops may need a follow-up visual tweak without changing the domain terms.

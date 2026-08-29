@@ -483,6 +483,8 @@ describe('loadReplayScript', () => {
       { doc: [{ kind: 'throw', chunks: [], message: 'nope', code: '' }], message: /code must be a non-empty string/ },
       { doc: [{ kind: 'hang', extra: true }], message: /invalid hang-entry fields/ },
       { doc: [{ kind: 'hang', readyFile: 1 }], message: /readyFile must be a non-empty string/ },
+      { doc: [{ kind: 'hang', chunks: 'nope' }], message: /chunks must be an array/ },
+      { doc: [{ kind: 'hang', chunks: [], extra: true }], message: /invalid hang-entry fields/ },
       { doc: [{ kind: 'bogus' }], message: /unknown kind/ },
     ]
     for (const { doc, message } of invalid) {
@@ -814,6 +816,48 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     expect(existsSync(readyFile)).toBe(true)
     controller.abort()
     await expect(pending).rejects.toThrow('aborted')
+  })
+
+  it('yields hang.chunks as the prefix before stalling', async () => {
+    writeFileSync(file, sessionJsonl([]), 'utf8')
+    const overrideFile = join(dir, 'replay.override.json')
+    const readyFile = join(dir, 'reasoning-hang-ready')
+    const chunks: StreamChunk[] = [
+      { type: 'block-start', index: 0, blockType: 'reasoning' },
+      { type: 'reasoning-delta', index: 0, text: 'planning' },
+    ]
+    writeFileSync(overrideFile, JSON.stringify([{ kind: 'hang', readyFile, chunks }]), 'utf8')
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    installLlmReplay(ctx, { file, overrideFile })
+    const controller = new AbortController()
+    const iterator = ctx.llm.stream({
+      provider: 'm', model: 'm', messages: [], signal: controller.signal,
+    })[Symbol.asyncIterator]()
+    expect((await iterator.next()).value).toEqual(chunks[0])
+    expect((await iterator.next()).value).toEqual(chunks[1])
+    const pending = iterator.next()
+    await new Promise(r => setImmediate(r))
+    expect(existsSync(readyFile)).toBe(true)
+    controller.abort()
+    await expect(pending).rejects.toThrow('aborted')
+  })
+
+  it('aborts hang.chunks prefix when the signal is already set', async () => {
+    writeFileSync(file, sessionJsonl([]), 'utf8')
+    const overrideFile = join(dir, 'replay.override.json')
+    writeFileSync(overrideFile, JSON.stringify([{
+      kind: 'hang',
+      chunks: [{ type: 'block-start', index: 0, blockType: 'reasoning' }],
+    }]), 'utf8')
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    installLlmReplay(ctx, { file, overrideFile })
+    const controller = new AbortController()
+    controller.abort()
+    await expect(drain(ctx.llm.stream({
+      provider: 'm', model: 'm', messages: [], signal: controller.signal,
+    }))).rejects.toThrow('aborted')
   })
 
   it('aborts mid-replay of a throw-entry prefix when the signal is set', async () => {

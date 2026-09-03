@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reference: DeepSeek Harness 故障排查与诊断速查卡</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #2ea043;
+      --orange: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    .sheet {
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    h1 { color: var(--text-bright); font-size: 1.8rem; font-weight: 700; }
+    .subtitle { color: var(--red); font-size: 0.95rem; font-weight: 600; text-transform: uppercase; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .panel {
+      background: rgba(13, 17, 23, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .panel-full { grid-column: 1 / -1; }
+    h2 {
+      font-size: 1.15rem;
+      color: var(--text-bright);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+    }
+    code {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      background: rgba(110, 118, 129, 0.2);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+    pre {
+      background: #090d13;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.85rem;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+      color: #e6edf3;
+    }
+    ul { padding-left: 1.25rem; margin-bottom: 0.5rem; }
+    li { margin-bottom: 0.4rem; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: rgba(88, 166, 255, 0.1); color: var(--text-bright); }
+    .error-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(248, 81, 73, 0.2);
+      color: var(--red);
+    }
+    .footer {
+      border-top: 1px solid var(--border);
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #8b949e;
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <header>
+      <div>
+        <div class="subtitle">DIAGNOSTICS & TROUBLESHOOTING</div>
+        <h1>DeepSeek Harness 故障诊断速查卡</h1>
+      </div>
+      <div style="text-align: right; font-size: 0.85rem; color: #8b949e;">
+        <div>Scope: Runtime, Boot & Invariants</div>
+        <div>Policy: Misconfiguration Fails Loud</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Panel 1: Top 5 Pitfalls -->
+      <div class="panel panel-full">
+        <h2>🚨 5 大高频故障模式与应对策略</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>故障现象 / 报错信息</th>
+              <th>根本原因</th>
+              <th>排查定位手段</th>
+              <th>修复方案</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="error-badge">log-reconstruction desync</span></td>
+              <td>违反了 <code>Model-Visible ⟺ Logged</code>。模型看到的 messages 与 <code>session.deriveMessages()</code> 不一致。</td>
+              <td>检查是否有插件在 <code>agent/request</code> 中强行修改 <code>options.messages</code> 而未写入 Session Event。</td>
+              <td>必须先通过 <code>session.append()</code> 记录领域事件，再通过投影由纯函数生成消息。</td>
+            </tr>
+            <tr>
+              <td><span class="error-badge">Plugin Hang / Service Missing</span></td>
+              <td>插件声明了 <code>inject: ['foo']</code>，但当前 Profile/Bundle 中未装载提供 <code>foo</code> 的插件。</td>
+              <td>运行 <code>pnpm dsh --profile &lt;name&gt; --dump-config</code> 查看生效插件列表。</td>
+              <td>在 Profile 中补齐缺失 Bundle，或在 <code>cordis.patch.yml</code> 中配置引入对应 Provider。</td>
+            </tr>
+            <tr>
+              <td><span class="error-badge">Waterfall Short-circuit</span></td>
+              <td>事件监听器没有调用 <code>await next(...)</code>，导致后续插件（安全审查、压缩、指令重写）全部被吞。</td>
+              <td>断点定位 <code>agent/pre-step</code> 或 <code>agent/request</code> 监听器执行流程。</td>
+              <td>严格按照 <code>const res = await next(...); return { ...res, ... }</code> 规范向下委托。</td>
+            </tr>
+            <tr>
+              <td><span class="error-badge">Zombie Handler / Leak</span></td>
+              <td>插件在装载时注册了事件或定时器，但没有通过 <code>ctx.effect()</code> 暴露 Disposer。</td>
+              <td>在热重载（Live Reload）或 Session 销毁后观察是否依然收到已销毁会话的事件。</td>
+              <td>所有副作用必须包裹在 <code>ctx.effect(() => { return () => cleanup() })</code> 中。</td>
+            </tr>
+            <tr>
+              <td><span class="error-badge">Tool Timeout / Lockup</span></td>
+              <td>工具在 <code>execute</code> 中没有监听或传递 <code>exec.signal</code>，或者独占工具耗尽时间阻断排空。</td>
+              <td>观察控制台是否超时退出，检查异步 IO（<code>fetch/spawn</code>）是否携带 signal。</td>
+              <td>将 <code>exec.signal</code> 传入底层 IO，或在长耗时循环中定期检查 <code>exec.signal.aborted</code>。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Panel 2: Diagnostic Commands -->
+      <div class="panel">
+        <h2>🛠️ 必备排查诊断命令</h2>
+        <ul>
+          <li><code>pnpm dsh --profile &lt;name&gt; --dump-config</code><br>查看配置层叠最终结果与插件挂载树。</li>
+          <li><code>pnpm run test:snapshot -t &lt;name&gt;</code><br>在本地零 Key、零网络依赖下重放会话事件流，定位回归问题。</li>
+          <li><code>pnpm run typecheck</code><br>严格模式检查 Context 声明合并与类型安全。</li>
+          <li><code>pnpm run hygiene</code><br>检查 package.json 依赖完整性与 publint 规范。</li>
+        </ul>
+      </div>
+
+      <!-- Panel 3: Invariant Philosophy -->
+      <div class="panel">
+        <h2>🛡️ Invariants 架构原则</h2>
+        <ul>
+          <li><strong>独立观察防分歧</strong>：只在两个系统独立观测点可能产生隐蔽分歧时编写 Invariant（如内存派发 vs 磁盘事件流）。</li>
+          <li><strong>拒绝静默吞错</strong>：<code>fail()</code> 立即中断，不允许为了容错而 fallback 隐藏架构设计漏洞。</li>
+          <li><strong>Fail Loud, Fail Early</strong>：启动期的配置错误绝不留到运行期；运行期的状态撕裂绝不留到下个 Step。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>DeepSeek Harness Diagnostic Reference</div>
+      <div>Designed for swift root-cause analysis in complex agent sessions</div>
+    </div>
+  </div>
+</body>
+</html>

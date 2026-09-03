@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 0001: dsh 启动机制与 Cordis 插件树装配</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-hover: #1f6feb;
+      --success: #2ea043;
+      --warning: #d29922;
+      --danger: #f85149;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --text-muted: #8b949e;
+      --code-bg: #090d13;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 20px;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    .meta-box {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .meta-item span {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .meta-item strong {
+      color: var(--text-bright);
+      font-size: 0.95rem;
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      color: var(--text-bright);
+      margin: 2rem 0 1rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    p { margin-bottom: 1rem; }
+
+    .highlight-card {
+      background: rgba(88, 166, 255, 0.05);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1.5rem 0;
+    }
+
+    .highlight-card p:last-child { margin-bottom: 0; }
+
+    pre, code {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+    }
+
+    code {
+      background: rgba(110, 118, 129, 0.2);
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+      color: var(--text-bright);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      line-height: 1.45;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+    }
+
+    /* Diagram visualizer */
+    .flow-diagram {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .flow-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 0.2rem;
+    }
+
+    .flow-content {
+      flex: 1;
+    }
+
+    .flow-content h4 {
+      color: var(--text-bright);
+      margin-bottom: 0.25rem;
+    }
+
+    .flow-arrow {
+      margin-left: 14px;
+      border-left: 2px dashed var(--border);
+      height: 20px;
+    }
+
+    /* Interactive Quiz */
+    .quiz-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+
+    .quiz-question {
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 1rem;
+      font-size: 1.05rem;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .quiz-option {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: all 0.2s ease;
+      color: var(--text);
+    }
+
+    .quiz-option:hover {
+      border-color: var(--accent);
+      background: rgba(88, 166, 255, 0.05);
+    }
+
+    .quiz-option.correct {
+      border-color: var(--success);
+      background: rgba(46, 160, 67, 0.15);
+      color: #7ee787;
+    }
+
+    .quiz-option.wrong {
+      border-color: var(--danger);
+      background: rgba(248, 81, 73, 0.15);
+      color: #ffa198;
+    }
+
+    .quiz-feedback {
+      display: none;
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.success {
+      background: rgba(46, 160, 67, 0.15);
+      border: 1px solid var(--success);
+      color: #7ee787;
+    }
+    .quiz-feedback.failure {
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--danger);
+      color: #ffa198;
+    }
+
+    .action-box {
+      border: 1px solid var(--warning);
+      background: rgba(210, 153, 34, 0.1);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin: 1.5rem 0;
+    }
+
+    .action-box h3 {
+      color: #e3b341;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Lesson 0001 · Architecture & Boot</div>
+      <h1>dsh 是如何跑起来的：从 CLI 到 Cordis 插件树装配</h1>
+      <p class="subtitle">解密无特权内核架构、Profile 与 Bundle 的层叠机制，以及 Cordis 依赖注入网络</p>
+    </header>
+
+    <div class="meta-box">
+      <div class="meta-item">
+        <span>前置要求</span>
+        <strong>TypeScript & Agent 基础概念</strong>
+      </div>
+      <div class="meta-item">
+        <span>预期用时</span>
+        <strong>8 - 10 分钟</strong>
+      </div>
+      <div class="meta-item">
+        <span>核心交付物</span>
+        <strong>能独立解释启动层叠链并验证 Config Dump</strong>
+      </div>
+    </div>
+
+    <h2>1. 核心世界观：没有特权内核，一切皆是插件</h2>
+    <p>
+      在大多数传统的 AI Agent 框架中，往往存在一个中央引擎（如 <code>AgentEngine</code> 类），它硬编码了模型调度、工具执行、日志收集和持久化等逻辑。外部扩展通常通过继承基类或注册回调函数来实现。
+    </p>
+    <div class="highlight-card">
+      <p>
+        <strong>DeepSeek Harness 的根本设计哲学：</strong><br>
+        <strong>There is no privileged core.（系统没有特权内核）</strong>。系统底层是 <strong>Cordis</strong> 微内核。包括 LLM Adapter、Tool Registry、Session Event Log，甚至是驱动多轮对话的 <strong>Agent Loop 本身</strong>，全都是平等的 Cordis 插件。
+      </p>
+    </div>
+    <p>
+      这意味着：<strong>扩展 dsh 不是去修改核心，而是在现有插件旁边挂载新的插件，或通过补丁覆盖现有插件。</strong> 当插件被卸载或发生重载时，注册的 Service 和 Event 监听器会通过 Effect Disposer 自动全部回滚。
+    </p>
+
+    <h2>2. 应用启动链：从 Profile 到最终 Context</h2>
+    <p>
+      所有支持的 Node 运行入口（Web UI、Headless 跑批、SDK 守护进程、ACP 自动化等）全部收敛在同一个 CLI 命令：<code>dsh</code>。代码位于 <a href="file:///Users/zangtao/Workspace/Playground/deepseek-harness/packages/boot/app-boot/README.md"><code>packages/boot/app-boot</code></a>。
+    </p>
+
+    <div class="flow-diagram">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-content">
+          <h4>CLI 接收 Profile 参数</h4>
+          <p>例如执行 <code>dsh --profile headless "fix bug"</code> 或 <code>dsh web</code>（即 <code>--profile web</code> 的别名）。</p>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-content">
+          <h4>查找 Profile 声明并解析 Bundle 列表</h4>
+          <p>每个 Profile 会按固定顺序组合 Bundle。例如 <code>headless</code> 组合了：<code>dsh-base</code>（基础层） + <code>dsh-headless</code>（单次运行驱动层）。</p>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-content">
+          <h4>顺序应用配置补丁（Patch Layers）</h4>
+          <p>
+            按照严格优先级应用：<br>
+            <code>Bundle 默认声明</code> &rarr; <code>Profile 级 cordis.patch.yml</code> &rarr; <code>Home 级 cordis.patch.yml</code> &rarr; <code>--patch 命令行注入</code>。<br>
+            每一层都可以按插件 <code>id</code> 整体覆写该插件的 <code>config</code>，或禁用插件。
+          </p>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-content">
+          <h4>Cordis Loader 启动与拓扑排序加载</h4>
+          <p>Cordis 遍历配置条目，解析每个插件导出的 <code>inject: string[]</code> 依赖声明。只有当一个插件所依赖的所有 Services 全部就绪时，它的 <code>apply(ctx)</code> 才会被调用。</p>
+        </div>
+      </div>
+    </div>
+
+    <h2>3. 动手实操验证：Dump 真实的运行时配置</h2>
+    <div class="action-box">
+      <h3>🛠️ 本地终端实操</h3>
+      <p>在当前仓库根目录运行以下命令，直观查看 Harness 实际装配的 Cordis 插件树：</p>
+      <pre><code>pnpm dsh --profile headless --dump-config</code></pre>
+      <p><strong>请在输出中重点寻找这几行关键特征：</strong></p>
+      <ul>
+        <li><code># == @deepseek-ai/dsh-base, patched by @deepseek-ai/dsh-headless</code>：说明了 <code>dsh-headless</code> 是如何对 <code>dsh-base</code> 中的 <code>tools</code> 和 <code>system-prompt</code> 注入补丁的。</li>
+        <li><code>id: agent-loop</code>：Agent 核心驱动是以普通插件身份挂载在 <code>@deepseek-ai/dsh-base</code> 底座上。</li>
+        <li><code>!!js process.env...</code>：配置文件支持合法的 JS 表达式动态求值（注意必须是两个感叹号 <code>!!js</code>）。</li>
+      </ul>
+    </div>
+
+    <h2>4. Cordis 插件编写核心契约</h2>
+    <p>编写一个合规的 dsh 插件，最简骨架如下：</p>
+    <pre><code>import type { Context } from '@deepseek-ai/cordis'
+
+// 1. 唯一插件名
+export const name = 'my-custom-feature'
+
+// 2. 声明所需服务依赖（只有当 ctx.tools 和 ctx.sessions 都存在时才执行 apply）
+export const inject = ['tools', 'sessions']
+
+// 3. 插件装载入口
+export function apply(ctx: Context) {
+  // 注册一个生命周期受控的副作用 (Effect)
+  // 当该插件卸载时，ctx 自动调用返回的清理函数，不会留下悬空事件或泄露
+  ctx.effect(() => {
+    const dispose = ctx.tools.register(/* ... */)
+    return () => dispose()
+  })
+}</code></pre>
+
+    <div class="highlight-card">
+      <p><strong>黄金法则（Misconfiguration fails loud）：</strong></p>
+      <p>如果插件的依赖服务缺失，Cordis 不会静默降级或吞掉错误，而是在启动阶段立刻抛出明确的未满足服务名称并报错退出。这保证了生产环境绝不会带病运行半初始化的 Agent。</p>
+    </div>
+
+    <h2>5. 课后即时自测</h2>
+    <p>检验你对启动机制的掌握程度，完成以下两道场景题：</p>
+
+    <!-- Quiz 1 -->
+    <div class="quiz-card" id="quiz1">
+      <div class="quiz-question">问题 1：假设你要修改当前 Agent 在 headless 运行下的工具调用模式（DSH_TOOLS_MODE），最佳且符合框架规范的做法是？</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="checkQuiz('quiz1', 0, false, '直接改源码会破坏版本一致性，且升级时容易冲突。')">A. 直接在 packages/core/tools/src/index.ts 中硬编码默认模式</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz1', 1, true, '正确！通过 patch 文件或环境变量覆盖配置层，完全保持了源码的纯净与框架的解耦。')">B. 通过环境变量或在 cordis.patch.yml 中针对 id: tools 覆盖其 config 配置</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz1', 2, false, 'dsh 没有全局单例对象，且启动后配置已冻结，不建议动态篡改。')">C. 在运行中通过全局全局变量 global.dshConfig 动态篡改</div>
+      </div>
+      <div class="quiz-feedback" id="quiz1-fb"></div>
+    </div>
+
+    <!-- Quiz 2 -->
+    <div class="quiz-card" id="quiz2">
+      <div class="quiz-question">问题 2：Cordis 中的 <code>inject: ['systemPrompt']</code> 机制起到了什么作用？</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="checkQuiz('quiz2', 0, false, 'Cordis 采用细粒度的 Service 注入，而非全量加载。')">A. 将 systemPrompt 包的所有内部私有函数直接引入当前文件</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz2', 1, true, '正确！Cordis 会基于 inject 构建依赖拓扑图，确保 ctx.systemPrompt 服务就绪后才激活当前插件，缺失时立即 Fail Loud。')">B. 声明依赖约束：确保 Context 上已就绪 systemPrompt 服务后才激活当前插件，缺失则启动报错</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz2', 2, false, 'TypeScript 类型仅在编译期生效，inject 是运行时的生命周期拓扑约束。')">C. 仅仅是供 TypeScript 编译器做静态类型推导，没有运行时作用</div>
+      </div>
+      <div class="quiz-feedback" id="quiz2-fb"></div>
+    </div>
+
+    <h2>6. 导师提问与延伸探讨</h2>
+    <p>
+      恭喜你完成了第一课！你现在已经清楚了整个 Harness 是如何通过 Profile、Bundle 和 Cordis 组装起来的。
+    </p>
+    <div class="highlight-card">
+      <p>💡 <strong>随时交流：</strong>如果有任何疑问，请随时在对话框中告诉我。例如：</p>
+      <ul>
+        <li>“我想看一下 <code>dsh-base</code> 内部到底配置了哪些具体插件？”</li>
+        <li>“Cordis 的 <code>ctx.provide</code> 是怎么向 TypeScript 暴露类型智能提示的？”</li>
+        <li>“如果准备好了，告诉我‘开始下一课’，我们将直奔 Agent Loop 的 Turn / Step 循环调度机制！”</li>
+      </ul>
+    </div>
+
+    <footer>
+      <span>DeepSeek Harness Teaching Workspace · Lesson 0001</span>
+      <span>Refer to: <a href="file:///Users/zangtao/Workspace/Playground/deepseek-harness/docs/architecture.md">docs/architecture.md</a></span>
+    </footer>
+  </div>
+
+  <script>
+    function checkQuiz(quizId, selectedIdx, isCorrect, explanation) {
+      const card = document.getElementById(quizId);
+      const options = card.querySelectorAll('.quiz-option');
+      const fb = document.getElementById(quizId + '-fb');
+
+      options.forEach((opt, idx) => {
+        opt.classList.remove('correct', 'wrong');
+        if (idx === selectedIdx) {
+          opt.classList.add(isCorrect ? 'correct' : 'wrong');
+        }
+      });
+
+      fb.className = 'quiz-feedback show ' + (isCorrect ? 'success' : 'failure');
+      fb.innerHTML = (isCorrect ? '<strong>🎉 回答正确！</strong> ' : '<strong>❌ 再想想：</strong> ') + explanation;
+    }
+  </script>
+</body>
+</html>

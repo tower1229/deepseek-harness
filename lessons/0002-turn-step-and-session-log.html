@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 0002: Agent Loop 运行时机制——Turn、Step 与 Session Log 状态投影</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-hover: #1f6feb;
+      --success: #2ea043;
+      --warning: #d29922;
+      --danger: #f85149;
+      --purple: #bc8cff;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --text-muted: #8b949e;
+      --code-bg: #090d13;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 20px;
+      background: rgba(188, 140, 255, 0.15);
+      color: var(--purple);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    .meta-box {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .meta-item span {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .meta-item strong {
+      color: var(--text-bright);
+      font-size: 0.95rem;
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      color: var(--text-bright);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      color: var(--text-bright);
+      margin: 1.5rem 0 0.5rem;
+    }
+
+    p { margin-bottom: 1rem; }
+
+    .highlight-card {
+      background: rgba(88, 166, 255, 0.05);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1.5rem 0;
+    }
+
+    .highlight-card.purple {
+      background: rgba(188, 140, 255, 0.05);
+      border-left-color: var(--purple);
+    }
+
+    .highlight-card p:last-child { margin-bottom: 0; }
+
+    pre, code {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+    }
+
+    code {
+      background: rgba(110, 118, 129, 0.2);
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+      color: var(--text-bright);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      line-height: 1.45;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+    }
+
+    /* Diagram visualizer */
+    .turn-visualizer {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .turn-boundary {
+      border: 2px dashed var(--purple);
+      border-radius: 8px;
+      padding: 1rem;
+      background: rgba(188, 140, 255, 0.03);
+      position: relative;
+    }
+
+    .turn-badge {
+      position: absolute;
+      top: -12px;
+      left: 16px;
+      background: var(--purple);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .steps-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .step-box {
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      border-radius: 6px;
+      padding: 1rem;
+    }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .step-flow {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+    }
+
+    .step-node {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      color: var(--text-bright);
+    }
+
+    .step-arrow {
+      color: var(--text-muted);
+      font-weight: bold;
+    }
+
+    /* Interactive Quiz */
+    .quiz-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+
+    .quiz-question {
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 1rem;
+      font-size: 1.05rem;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .quiz-option {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: all 0.2s ease;
+      color: var(--text);
+    }
+
+    .quiz-option:hover {
+      border-color: var(--accent);
+      background: rgba(88, 166, 255, 0.05);
+    }
+
+    .quiz-option.correct {
+      border-color: var(--success);
+      background: rgba(46, 160, 67, 0.15);
+      color: #7ee787;
+    }
+
+    .quiz-option.wrong {
+      border-color: var(--danger);
+      background: rgba(248, 81, 73, 0.15);
+      color: #ffa198;
+    }
+
+    .quiz-feedback {
+      display: none;
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.success {
+      background: rgba(46, 160, 67, 0.15);
+      border: 1px solid var(--success);
+      color: #7ee787;
+    }
+    .quiz-feedback.failure {
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--danger);
+      color: #ffa198;
+    }
+
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      color: var(--accent);
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Lesson 0002 · Core Runtime</div>
+      <h1>Agent Loop 运行时机制：Turn、Step 与 Session Log 状态投影</h1>
+      <p class="subtitle">解密无特权 Agent 驱动器、事件溯源日志设计，以及 Model-Visible ⟺ Logged 铁律</p>
+    </header>
+
+    <div class="meta-box">
+      <div class="meta-item">
+        <span>前置要求</span>
+        <strong>Lesson 0001 (Cordis 插件树)</strong>
+      </div>
+      <div class="meta-item">
+        <span>预期用时</span>
+        <strong>10 - 12 分钟</strong>
+      </div>
+      <div class="meta-item">
+        <span>核心交付物</span>
+        <strong>掌握消息消费流水线与工具调用调度模型</strong>
+      </div>
+    </div>
+
+    <h2>1. 破除直觉：为什么内存中没有 messages 数组？</h2>
+    <p>
+      在大多数简单 Agent 框架中，通常是这么写的：
+    </p>
+    <pre><code>// ❌ 传统框架常见做法：内存直推数组
+const messages = []
+messages.push({ role: 'user', content: prompt })
+const response = await llm.chat(messages)
+messages.push(response)</code></pre>
+    <p>
+      这种做法在复杂系统中有致命缺陷：<strong>无法做严格的确定性回放（Replay）、无法在不破坏历史的前提下平滑压缩上下文、多插件协同状态不可追溯。</strong>
+    </p>
+    
+    <div class="highlight-card purple">
+      <p>
+        <strong>DeepSeek Harness 核心公理：Model-Visible ⟺ Logged（所见必所记）</strong><br>
+        在 Harness 中，<strong>不存在独立常驻的 <code>messages</code> 数组</strong>。会话持久化日志（<code>SessionEvent Log</code>）是唯一的绝对真理源。模型每次调用所看到的 <code>Message[]</code> 历史，全部由纯函数 <code>session.deriveMessages()</code> 从追加日志（Append-only log）中投影重构得出！
+      </p>
+    </div>
+
+    <h2>2. Turn 与 Step 的精妙生命周期</h2>
+    <p>
+      许多初学者会混淆 Turn 和 Step。在 Harness（代码位于 <a href="file:///Users/zangtao/Workspace/Playground/deepseek-harness/packages/core/agent-loop/README.md"><code>packages/core/agent-loop</code></a>）中，两者的界限极度严谨：
+    </p>
+
+    <div class="turn-visualizer">
+      <div class="turn-boundary">
+        <div class="turn-badge">Turn（一轮完整的用户目标响应周期）</div>
+        <p style="margin: 0.5rem 0 1rem; font-size: 0.85rem; color: var(--text-muted);">
+          从 Inbox 原子认领：<strong>1 条排队的 User Prompt + 待办的 Next-step Input</strong> 开始，直至模型不需要调用工具且没有新的未处理输入时关闭。
+        </p>
+
+        <div class="steps-container">
+          <!-- Step 1 -->
+          <div class="step-box">
+            <div class="step-header">
+              <span>Step 1: 用户输入 &rarr; 模型决定调用工具</span>
+              <code>step/start &rarr; step/end</code>
+            </div>
+            <div class="step-flow">
+              <span class="step-node">agent/pre-step 判定</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">user/message 落盘</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">deriveMessages() 投影</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">llm/stream 流式调用</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">assistant/message</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">tool/call</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">tool/result</span>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="step-box">
+            <div class="step-header">
+              <span>Step 2: 消费工具输出 &rarr; 模型输出最终文本回复</span>
+              <code>step/start &rarr; step/end</code>
+            </div>
+            <div class="step-flow">
+              <span class="step-node">认领步间 next-step input</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">deriveMessages() 包含刚执行的 tool_result</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">llm/stream</span>
+              <span class="step-arrow">&rarr;</span>
+              <span class="step-node">assistant/message (无更多 tool_call)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Inbox 的消费法则</h3>
+    <ul>
+      <li><strong>Turn 开始点</strong>：原子认领当前挂起的 <code>next-step input</code> 加上 <strong>恰好一条</strong> 排队的 <code>queued prompt</code>。</li>
+      <li><strong>Step 之间</strong>：<strong>绝对不会</strong> 认领排队的用户 Prompt，只认领工具执行或外部插件通过 <code>agent.inject()</code> 注入的 <code>next-step input</code>。这保证了一个复杂任务的完整执行链不会被半路插队的外部指令所打乱。</li>
+    </ul>
+
+    <h2>3. 关键拦截点：<code>agent/pre-step</code> (Waterfall)</h2>
+    <p>
+      当消息被认领后、<code>step/start</code> 写入之前，Driver 会触发 <code>agent/pre-step</code> Waterfall 监听链。
+    </p>
+    <pre><code>// 编写拦截插件时的关键规范
+ctx.on('agent/pre-step', async (agent, messages, next) => {
+  // 1. 如果需要安全审查拦截：
+  if (isViolatingPolicy(messages)) {
+    return { kind: 'reject' } // 拒绝进入！Turn 直接关闭，不产生 Step
+  }
+
+  // 2. 正常透传或消息重写：必须调用 next() 并解构保留已有属性！
+  const decision = await next(agent, messages)
+  return { ...decision, messages: rewriteMessages(decision.messages) }
+})</code></pre>
+    <div class="highlight-card">
+      <p><strong>Waterfall 铁律：</strong></p>
+      <p>Cordis Waterfall 监听器如果直接 <code>return</code> 而不调用 <code>next()</code>，会导致后续监听器被短路截断。因此在实现插件时，务必调用 <code>await next(...)</code>。</p>
+    </div>
+
+    <h2>4. 工具调度：Parallel 并发池与 Exclusive 屏障</h2>
+    <p>
+      当大模型一次性返回多个 <code>tool_call</code>（例如同时搜索 3 个文件并修改 1 个文件）时，Harness 的调度器并不是简单地 <code>Promise.all()</code>。
+    </p>
+    <ul>
+      <li>
+        <strong><code>executionMode: 'parallel'</code></strong>：对于只读、幂等的工具（如 <code>read_file</code>、<code>grep</code>），进入有限滚动并发池执行，并发数量受 <code>maxParallelToolCalls</code> 约束（默认 10）。
+      </li>
+      <li>
+        <strong><code>executionMode: 'exclusive'</code></strong>：对于写文件（<code>write_file</code>）或命令执行（<code>bash</code>），被标记为互斥独占工具。它们是<strong>顺序执行屏障（Barrier）</strong>，必须等待前面所有并发工具完全执行结束并落盘后，才单独串行执行。
+      </li>
+      <li>
+        <strong>严格模型保序（Model-Ordered）</strong>：无论并行工具由于网络或 IO 差异哪个先完成，写入持久化日志 <code>tool/result</code> 以及向 UI 呈现的顺序，<strong>严格按照模型最初输出的声明顺序提交</strong>。这杜绝了并发时序抖动导致的 Replay 失败。
+      </li>
+    </ul>
+
+    <h2>5. 课后即时自测</h2>
+    <p>检验你对 Agent Loop 核心心智模型的掌握：</p>
+
+    <!-- Quiz 1 -->
+    <div class="quiz-card" id="quiz1">
+      <div class="quiz-question">问题 1：假设当前 Agent 正在执行 Step 1 的工具调用，用户通过 CLI 再次输入了一条新提示词并进入了 Inbox，此时 Driver 会如何反应？</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="checkQuiz('quiz1', 0, false, '不会中断。Harness 保证当前 Turn 的原子性与目标完整性。')">A. 立刻抛弃当前 Step，抢占式优先执行用户的新提示词</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz1', 1, false, '步间只认领 next-step input，绝不会把排队的 queued prompt 塞入同一个 Turn 的下一个 Step。')">B. 在 Step 1 结束时，把这条提示词合并进 Step 2 的模型上下文中一起发送</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz1', 2, true, '正确！当前 Turn 继续正常流转直至彻底结束；新提示词作为 queued prompt 会在下一个 Turn 开启时被独立认领。')">C. 继续执行当前 Turn 直到所有工具执行且模型回答完毕；新提示词将在下一个 Turn 开启时被认领</div>
+      </div>
+      <div class="quiz-feedback" id="quiz1-fb"></div>
+    </div>
+
+    <!-- Quiz 2 -->
+    <div class="quiz-card" id="quiz2">
+      <div class="quiz-question">问题 2：为什么 Harness 规定“模型可见的任何内容都必须先成为持久化会话事件（Model-Visible ⟺ Logged）”？</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="checkQuiz('quiz2', 0, false, '这只是持久化的手段，不是核心目的。')">A. 主要是为了给数据库或 ElasticSearch 留一份审计日志</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz2', 1, true, '正确！没有内存暗流，所有上下文纯函数推导，这使得 100% 确定性回放、无 Key 单测以及历史 Fork 成为可能。')">B. 保证状态无歧义：模型上下文完全由日志纯函数推导，使得零 Key 回放测试、会话 Fork 与精准上下文压缩成为可能</div>
+        <div class="quiz-option" onclick="checkQuiz('quiz2', 2, false, '内存数组与事件流并不冲突，但 Harness 彻底抛弃了易造成时序不一致的裸内存状态。')">C. 因为 Node.js 内存容易发生垃圾回收泄漏，存到磁盘更节省内存</div>
+      </div>
+      <div class="quiz-feedback" id="quiz2-fb"></div>
+    </div>
+
+    <h2>6. 导师总结与下一步</h2>
+    <p>
+      搞懂了 <strong>Profile/Bundle 启动模型</strong> 和 <strong>Agent Loop 的 Turn/Step/Event 状态机</strong>，你已经攻克了 Harness 最底层的两大基石！
+    </p>
+    <div class="highlight-card">
+      <p>💡 <strong>随时交流与参考资料：</strong></p>
+      <ul>
+        <li>推荐查看刚为你生成的精美速查表：<a href="file:///Users/zangtao/Workspace/Playground/deepseek-harness/reference/turn-and-step-cheat-sheet.html"><code>reference/turn-and-step-cheat-sheet.html</code></a></li>
+        <li>如果你对“Session Event 如何编码与存储”或“如何用单测回放一个 snapshot”感兴趣，可以直接提问。</li>
+        <li>如果准备好进入实战编码，请告诉我“开始下一课”，我们将开启 <strong>第 3 课：动手编写你的第一个 Capability Seam（Service Definition + Provider + Tool Consumer）</strong>！</li>
+      </ul>
+    </div>
+
+    <footer>
+      <span>DeepSeek Harness Teaching Workspace · Lesson 0002</span>
+      <span>Refer to: <a href="file:///Users/zangtao/Workspace/Playground/deepseek-harness/packages/core/agent-loop/README.md">packages/core/agent-loop</a></span>
+    </footer>
+  </div>
+
+  <script>
+    function checkQuiz(quizId, selectedIdx, isCorrect, explanation) {
+      const card = document.getElementById(quizId);
+      const options = card.querySelectorAll('.quiz-option');
+      const fb = document.getElementById(quizId + '-fb');
+
+      options.forEach((opt, idx) => {
+        opt.classList.remove('correct', 'wrong');
+        if (idx === selectedIdx) {
+          opt.classList.add(isCorrect ? 'correct' : 'wrong');
+        }
+      });
+
+      fb.className = 'quiz-feedback show ' + (isCorrect ? 'success' : 'failure');
+      fb.innerHTML = (isCorrect ? '<strong>🎉 回答正确！</strong> ' : '<strong>❌ 再想想：</strong> ') + explanation;
+    }
+  </script>
+</body>
+</html>

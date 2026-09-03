@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reference: Capability Seam & Tool 编写速查卡</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #2ea043;
+      --orange: #d29922;
+      --purple: #bc8cff;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    .sheet {
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    h1 { color: var(--text-bright); font-size: 1.8rem; font-weight: 700; }
+    .subtitle { color: var(--green); font-size: 0.95rem; font-weight: 600; text-transform: uppercase; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .panel {
+      background: rgba(13, 17, 23, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .panel-full { grid-column: 1 / -1; }
+    h2 {
+      font-size: 1.15rem;
+      color: var(--text-bright);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+    }
+    code {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      background: rgba(110, 118, 129, 0.2);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+    pre {
+      background: #090d13;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.85rem;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+      color: #e6edf3;
+    }
+    ul { padding-left: 1.25rem; margin-bottom: 0.5rem; }
+    li { margin-bottom: 0.4rem; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: rgba(88, 166, 255, 0.1); color: var(--text-bright); }
+    .footer {
+      border-top: 1px solid var(--border);
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #8b949e;
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <header>
+      <div>
+        <div class="subtitle">DEEPSEEK HARNESS EXTENSION ARCHITECTURE</div>
+        <h1>Capability Seam & Tool 编写速查卡</h1>
+      </div>
+      <div style="text-align: right; font-size: 0.85rem; color: #8b949e;">
+        <div>Standards: <code>dsh-tools</code> & <code>cordis</code></div>
+        <div>Docs: <code>docs/cookbook/adding-a-tool.md</code></div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Panel 1: The Three Roles -->
+      <div class="panel panel-full">
+        <h2>📐 能力缝隙（Capability Seam）三位一体角色图</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>角色</th>
+              <th>代码包定位</th>
+              <th>Cordis 依赖声明</th>
+              <th>核心职责与契约</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. Service Definition</strong></td>
+              <td><code>packages/&lt;group&gt;/&lt;name&gt;</code></td>
+              <td>声明合并扩展 <code>Context</code> 接口</td>
+              <td>声明纯接口、服务注册表、提供者选择路由策略（按 config 或单提供者自动生效），返回注销 Disposer。</td>
+            </tr>
+            <tr>
+              <td><strong>2. Service Provider</strong></td>
+              <td><code>packages/&lt;group&gt;/&lt;name&gt;-&lt;impl&gt;</code></td>
+              <td><code>inject: ['&lt;serviceKey&gt;']</code></td>
+              <td>具体的平台/环境落地实现（如本地进程、云沙箱、内存缓存）。在 <code>apply</code> 中向 Service 注册自己。</td>
+            </tr>
+            <tr>
+              <td><strong>3. Consumer (Tool)</strong></td>
+              <td><code>packages/&lt;group&gt;/tool-&lt;name&gt;</code></td>
+              <td><code>inject: ['tools', '&lt;serviceKey&gt;']</code></td>
+              <td>将底层服务转化为面向大模型的 <code>defineTool</code>，负责 Prompt 参数描述、校验、执行与 UI Card 呈现。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Panel 2: defineTool Contract -->
+      <div class="panel">
+        <h2>🛠️ defineTool 核心契约速记</h2>
+        <ul>
+          <li><strong>参数校验自动完成</strong>：<code>parameters</code> 声明后，<code>execute(args, exec)</code> 中的 <code>args</code> 为强类型推导结果，无需手写基础校验。</li>
+          <li><strong>输出规范（Canonical Value）</strong>：必须返回匹配 <code>output.schema</code> 的纯 JSON 值，不要在返回值中拼接 ANSI 码或 UI 专用 Markdown。</li>
+          <li><strong>响应取消信号</strong>：异步 IO 操作必须绑定 <code>exec.signal</code>（如 <code>fetch(url, { signal: exec.signal })</code>）。</li>
+          <li><strong>UI Card 投影纯函数</strong>：<code>presentCall</code> 与 <code>presentResult</code> 必须是<strong>无副作用纯函数</strong>，严禁在其中读取全局状态或执行异步 IO。</li>
+        </ul>
+      </div>
+
+      <!-- Panel 3: Standard Tool Template -->
+      <div class="panel">
+        <h2>💻 极简 defineTool 模板</h2>
+        <pre><code>import { defineTool } from '@deepseek-ai/dsh-tools'
+
+ctx.tools.register(defineTool({
+  name: 'my_tool',
+  description: '面向模型的语义化描述',
+  parameters: {
+    target: { type: 'string', required: true, description: '目标标识' },
+    limit: { type: 'number', description: '可选条数限制' }
+  },
+  output: {
+    schema: { type: 'object', properties: { count: { type: 'number' } } },
+    render: (_args, val) => [{ type: 'text', text: `完成处理 ${val.count} 条` }]
+  },
+  async execute(args, exec) {
+    return await doWork(args.target, { signal: exec.signal })
+  }
+}))</code></pre>
+      </div>
+
+      <!-- Panel 4: Golden Rules -->
+      <div class="panel panel-full">
+        <h2>⚠️ 避坑铁律（Don'ts & Best Practices）</h2>
+        <ul>
+          <li><strong>严禁单角色存在</strong>：不要写一个既直接做底层逻辑又直接注册 Tool 的孤立包。必须保持 Service 与 Tool 解耦，以便未来无缝替换沙箱或远程后端。</li>
+          <li><strong>注册皆是 Effect</strong>：注册动作必须能被 Cordis 的 Disposer 清理，切勿在全局 Map 中保留无弱引用保护的外部对象。</li>
+          <li><strong>配置快速失败（Fail Loud）</strong>：如果配置了指定的 provider 却未找到，在调用或装载时立刻抛错，严禁静默回退导致非预期行为。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>DeepSeek Harness Extension Reference</div>
+      <div>Designed for clean printing and rapid plugin development</div>
+    </div>
+  </div>
+</body>
+</html>

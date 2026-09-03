@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reference: Agent Loop, Turn/Step & Session Log 速查表</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #2ea043;
+      --orange: #d29922;
+      --purple: #bc8cff;
+      --red: #f85149;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    .sheet {
+      max-width: 960px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    h1 { color: var(--text-bright); font-size: 1.8rem; font-weight: 700; }
+    .subtitle { color: var(--accent); font-size: 0.95rem; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .panel {
+      background: rgba(13, 17, 23, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .panel-full { grid-column: 1 / -1; }
+    h2 {
+      font-size: 1.15rem;
+      color: var(--text-bright);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+    }
+    code {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      background: rgba(110, 118, 129, 0.2);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+    ul { padding-left: 1.25rem; margin-bottom: 0.5rem; }
+    li { margin-bottom: 0.4rem; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: rgba(88, 166, 255, 0.1); color: var(--text-bright); }
+    .tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .tag-waterfall { background: rgba(188, 140, 255, 0.2); color: var(--purple); }
+    .tag-serial { background: rgba(210, 153, 34, 0.2); color: var(--orange); }
+    .tag-durable { background: rgba(46, 160, 67, 0.2); color: var(--green); }
+    .footer {
+      border-top: 1px solid var(--border);
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #8b949e;
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <header>
+      <div>
+        <div class="subtitle">DEEPSEEK HARNESS QUICK REFERENCE</div>
+        <h1>Agent Loop & Session Event 模型速查</h1>
+      </div>
+      <div style="text-align: right; font-size: 0.85rem; color: #8b949e;">
+        <div>Version: v0 / Pre-release</div>
+        <div>Core: <code>dsh-agent-loop</code> & <code>dsh-session</code></div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Panel 1: Turn vs Step -->
+      <div class="panel">
+        <h2>🔄 Turn vs Step 边界对比</h2>
+        <table>
+          <thead>
+            <tr><th>维度</th><th>Turn (轮次)</th><th>Step (单步)</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>定义</strong></td>
+              <td>完整业务响应周期（从收到输入到无可做工作）</td>
+              <td>单次“模型请求 + 工具执行”闭环</td>
+            </tr>
+            <tr>
+              <td><strong>包含关系</strong></td>
+              <td>包含 0 到 N 个 Steps</td>
+              <td>严格隶属于一个 Turn</td>
+            </tr>
+            <tr>
+              <td><strong>Inbox 认领</strong></td>
+              <td>认领 1 条 Queued Prompt + Next-step Input</td>
+              <td>仅认领步间产生的 Next-step Input</td>
+            </tr>
+            <tr>
+              <td><strong>会话事件</strong></td>
+              <td><code>turn/start</code> &rarr; <code>turn/end</code></td>
+              <td><code>step/start</code> &rarr; <code>step/end</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Panel 2: Model-Visible Invariant -->
+      <div class="panel">
+        <h2>📜 核心公理：Model-Visible ⟺ Logged</h2>
+        <ul>
+          <li><strong>无独立状态</strong>：内存中没有常驻的 <code>messages: Message[]</code> 数组。</li>
+          <li><strong>纯函数投影</strong>：模型每次看到的历史全部由 <code>session.deriveMessages()</code> 从持久化的 <code>SessionEvent[]</code> 流中确定性计算得出。</li>
+          <li><strong>不可变追加</strong>：所有对模型可见的事实（用户输入、助手回复、工具输出）必须以持久化事件落地，杜绝内存暗流。</li>
+          <li><strong>零 Key 回放</strong>：所有 <code>snapshots/</code> 录制会话仅需重放 Event Log 即可 100% 还原行为。</li>
+        </ul>
+      </div>
+
+      <!-- Panel 3: Event Taxonomy -->
+      <div class="panel panel-full">
+        <h2>⚡ 核心事件与扩展点分类表</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>事件名称</th>
+              <th>机制属性</th>
+              <th>触发时机与职责</th>
+              <th>监听规范</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>agent/pre-step</code></td>
+              <td><span class="tag tag-waterfall">Waterfall</span></td>
+              <td>Step 开始前。决定认领的消息是否进入 Step：<code>enter()</code> 或 <code>reject()</code></td>
+              <td><strong>必须调用 <code>next()</code></strong> 传递决策，支持消息重写</td>
+            </tr>
+            <tr>
+              <td><code>agent/request</code></td>
+              <td><span class="tag tag-waterfall">Waterfall</span></td>
+              <td>向 LLM 发起请求前。可注入/重写 Prompt、模型参数或选择 Adapter</td>
+              <td><strong>必须调用 <code>next()</code></strong></td>
+            </tr>
+            <tr>
+              <td><code>agent/turn-stopping</code></td>
+              <td><span class="tag tag-serial">Serial</span></td>
+              <td>Turn 自然结束且无待处理输入时触发。最后拦截检查点（如 Ralph/Goal 驱动）</td>
+              <td>无 <code>next()</code>，顺序执行异步钩子</td>
+            </tr>
+            <tr>
+              <td><code>session/event</code></td>
+              <td><span class="tag tag-durable">Durable Broadcast</span></td>
+              <td>每次 <code>session.append()</code> 成功落盘并冻结时全局广播</td>
+              <td>只读观察者，UI 渲染/持久化存储均订阅此流</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Panel 4: Tool Scheduling -->
+      <div class="panel">
+        <h2>🛠️ 工具调用并发与屏障</h2>
+        <ul>
+          <li><code>executionMode: 'parallel'</code>：默认只读/幂等工具（如 <code>read_file</code>、<code>grep</code>）。由有限滚动并发池执行，并发上限为 <code>maxParallelToolCalls</code>（默认 10）。</li>
+          <li><code>executionMode: 'exclusive'</code>：写操作/状态破坏工具（如 <code>write_file</code>、<code>bash</code>）。作为屏障，前后并行任务必须排空后单独串行执行。</li>
+          <li><strong>Model-Ordered 排序</strong>：并发完成次序无论先后，在 Session Log 与 UI 派发时始终严格按照模型输出的原始顺序提交。</li>
+        </ul>
+      </div>
+
+      <!-- Panel 5: Key Debugging Commands -->
+      <div class="panel">
+        <h2>🔍 调试与验证命令</h2>
+        <ul>
+          <li><code>pnpm run test:snapshot -t &lt;name&gt;</code>：使用录制的 Session Log 执行零 Key 确定性回放测试。</li>
+          <li><code>pnpm dsh --profile headless --dump-config</code>：打印运行时的完整插件装配图。</li>
+          <li><code>session.snapshotEvents()</code>：在测试或调试断点中获取不可变事件切片。</li>
+          <li><code>deriveMessages()</code>：验证事件流解析出的模型上下文输入。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>DeepSeek Harness Reference Collection</div>
+      <div>Designed for clean printing and rapid architecture reference</div>
+    </div>
+  </div>
+</body>
+</html>
